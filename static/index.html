@@ -40,8 +40,35 @@
 
             <!-- Audio Analysis Tab -->
             <div id="audio-tab" class="tab-content">
+                <!-- Real-time Recording -->
                 <div class="input-section">
-                    <h2>음성 파일 업로드</h2>
+                    <h2>🎤 실시간 음성 녹음</h2>
+                    <div class="recording-section">
+                        <div class="recording-controls">
+                            <button id="record-btn" class="btn-record" onclick="toggleRecording()">
+                                <span class="record-icon">●</span>
+                                <span id="record-text">녹음 시작</span>
+                            </button>
+                            <div id="recording-time" class="recording-time" style="display: none;">
+                                <span id="time-display">00:00</span>
+                            </div>
+                        </div>
+                        <div id="audio-visualizer" class="audio-visualizer" style="display: none;">
+                            <canvas id="visualizer-canvas"></canvas>
+                        </div>
+                        <div id="recorded-audio" style="display: none;">
+                            <h3>녹음된 오디오</h3>
+                            <audio id="audio-playback" controls></audio>
+                            <button class="btn-primary" onclick="analyzeRecordedAudio()">이 녹음 분석하기</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="divider">또는</div>
+
+                <!-- File Upload -->
+                <div class="input-section">
+                    <h2>📁 음성 파일 업로드</h2>
                     <div class="file-upload">
                         <input type="file" id="audio-file" accept=".wav,.mp3,.flac,.m4a">
                         <label for="audio-file" class="file-label">
@@ -49,7 +76,7 @@
                             <span class="file-hint">(.wav, .mp3, .flac, .m4a)</span>
                         </label>
                     </div>
-                    <button class="btn-primary" onclick="analyzeAudio()">분석하기</button>
+                    <button class="btn-primary" onclick="analyzeAudioFile()">분석하기</button>
                 </div>
             </div>
 

@@ -1,6 +1,17 @@
 // API Base URL
 const API_BASE = '';
 
+// Audio recording variables
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingStartTime = null;
+let recordingInterval = null;
+let audioStream = null;
+let audioContext = null;
+let analyser = null;
+let animationFrame = null;
+let recordedBlob = null;
+
 // Scenario data
 const scenarios = {
     1: "안녕하세요, 서울중앙지검 김철수 검사입니다. 당신 명의의 계좌가 보이스피싱 범죄에 사용되었습니다. 지금 바로 확인하지 않으면 내일 체포영장이 발부됩니다. 주민등록번호 123456-1234567과 계좌번호 1234-567890을 말씀해주세요.",
@@ -88,8 +99,194 @@ async function analyzeText() {
     }
 }
 
-// Analyze audio
-async function analyzeAudio() {
+// Toggle recording
+async function toggleRecording() {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        await startRecording();
+    } else {
+        stopRecording();
+    }
+}
+
+// Start recording
+async function startRecording() {
+    try {
+        // Request microphone access
+        audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                sampleRate: 16000
+            }
+        });
+
+        // Create media recorder
+        mediaRecorder = new MediaRecorder(audioStream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            // Create blob from chunks
+            recordedBlob = new Blob(audioChunks, { type: 'audio/wav' });
+
+            // Create playback URL
+            const audioURL = URL.createObjectURL(recordedBlob);
+            const audioPlayback = document.getElementById('audio-playback');
+            audioPlayback.src = audioURL;
+
+            // Show recorded audio section
+            document.getElementById('recorded-audio').style.display = 'block';
+
+            // Stop visualizer
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            document.getElementById('audio-visualizer').style.display = 'none';
+        };
+
+        // Start recording
+        mediaRecorder.start();
+        recordingStartTime = Date.now();
+
+        // Update UI
+        const recordBtn = document.getElementById('record-btn');
+        const recordText = document.getElementById('record-text');
+        recordBtn.classList.add('recording');
+        recordText.textContent = '녹음 중지';
+
+        // Show and start timer
+        document.getElementById('recording-time').style.display = 'block';
+        recordingInterval = setInterval(updateRecordingTime, 100);
+
+        // Start visualizer
+        startVisualizer();
+
+        console.log('Recording started');
+
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        alert('마이크 접근 권한이 필요합니다.');
+    }
+}
+
+// Stop recording
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+
+        // Stop all tracks
+        if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Update UI
+        const recordBtn = document.getElementById('record-btn');
+        const recordText = document.getElementById('record-text');
+        recordBtn.classList.remove('recording');
+        recordText.textContent = '녹음 시작';
+
+        // Stop timer
+        if (recordingInterval) {
+            clearInterval(recordingInterval);
+        }
+        document.getElementById('recording-time').style.display = 'none';
+
+        console.log('Recording stopped');
+    }
+}
+
+// Update recording time
+function updateRecordingTime() {
+    const elapsed = Date.now() - recordingStartTime;
+    const seconds = Math.floor(elapsed / 1000);
+    const milliseconds = Math.floor((elapsed % 1000) / 100);
+    const timeDisplay = document.getElementById('time-display');
+    timeDisplay.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}.${milliseconds}`;
+}
+
+// Start audio visualizer
+function startVisualizer() {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(audioStream);
+    source.connect(analyser);
+
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const canvas = document.getElementById('visualizer-canvas');
+    const canvasCtx = canvas.getContext('2d');
+
+    document.getElementById('audio-visualizer').style.display = 'block';
+
+    // Set canvas size
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 100;
+
+    function draw() {
+        animationFrame = requestAnimationFrame(draw);
+
+        analyser.getByteFrequencyData(dataArray);
+
+        canvasCtx.fillStyle = '#000';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let barHeight;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            barHeight = (dataArray[i] / 255) * canvas.height;
+
+            const hue = (i / bufferLength) * 360;
+            canvasCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+            canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+            x += barWidth + 1;
+        }
+    }
+
+    draw();
+}
+
+// Analyze recorded audio
+async function analyzeRecordedAudio() {
+    if (!recordedBlob) {
+        alert('먼저 음성을 녹음하세요.');
+        return;
+    }
+
+    showLoading();
+
+    try {
+        const formData = new FormData();
+        formData.append('file', recordedBlob, 'recording.wav');
+
+        const response = await fetch(`${API_BASE}/api/analyze/audio`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        displayResults(data, true);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('분석 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Analyze audio file
+async function analyzeAudioFile() {
     const fileInput = document.getElementById('audio-file');
     const file = fileInput.files[0];
 
