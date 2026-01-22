@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import logging
 
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain_community.llms import HuggingFacePipeline
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+# LangChain imports - optional, using rule-based approach for now
+# from langchain_core.prompts import PromptTemplate
+# from langchain.chains import LLMChain
+# from langchain_community.llms import HuggingFacePipeline
+# from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
 from src.stt.whisper_stt import WhisperSTT
 from src.vector_db.vector_store import PhishingVectorStore
@@ -72,7 +73,7 @@ class PhishingDetectionPipeline:
         # Create prompt template
         self.prompt_template = self._create_prompt_template()
 
-    def _create_prompt_template(self) -> PromptTemplate:
+    def _create_prompt_template(self) -> str:
         """Create prompt template for phishing analysis"""
         template = """당신은 보이스피싱 탐지 전문가입니다. 다음 통화 내용을 분석하여 보이스피싱 위험도를 평가하세요.
 
@@ -94,10 +95,7 @@ class PhishingDetectionPipeline:
 - 근거: [설명]
 - 권장 조치: [사용자에게 제공할 조언]
 """
-        return PromptTemplate(
-            input_variables=["transcript", "similar_cases"],
-            template=template
-        )
+        return template
 
     def transcribe_audio(self, audio_path: Path) -> str:
         """
