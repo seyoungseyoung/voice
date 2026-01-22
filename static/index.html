@@ -56,9 +56,20 @@
                         <div id="audio-visualizer" class="audio-visualizer" style="display: none;">
                             <canvas id="visualizer-canvas"></canvas>
                         </div>
+                        <div id="transcript-live" class="transcript-live" style="display: none;">
+                            <h3>🎯 실시간 음성 인식</h3>
+                            <div id="live-transcript-text" class="live-transcript-text">
+                                음성을 인식하는 중...
+                            </div>
+                            <button class="btn-secondary btn-small" onclick="clearTranscript()">지우기</button>
+                        </div>
                         <div id="recorded-audio" style="display: none;">
                             <h3>녹음된 오디오</h3>
                             <audio id="audio-playback" controls></audio>
+                            <div id="final-transcript" class="final-transcript" style="display: none;">
+                                <strong>인식된 텍스트:</strong>
+                                <p id="final-transcript-text"></p>
+                            </div>
                             <button class="btn-primary" onclick="analyzeRecordedAudio()">이 녹음 분석하기</button>
                         </div>
                     </div>

@@ -12,6 +12,11 @@ let analyser = null;
 let animationFrame = null;
 let recordedBlob = null;
 
+// Speech recognition variables
+let recognition = null;
+let finalTranscript = '';
+let interimTranscript = '';
+
 // Scenario data
 const scenarios = {
     1: "안녕하세요, 서울중앙지검 김철수 검사입니다. 당신 명의의 계좌가 보이스피싱 범죄에 사용되었습니다. 지금 바로 확인하지 않으면 내일 체포영장이 발부됩니다. 주민등록번호 123456-1234567과 계좌번호 1234-567890을 말씀해주세요.",
@@ -164,12 +169,95 @@ async function startRecording() {
         // Start visualizer
         startVisualizer();
 
+        // Start speech recognition
+        startSpeechRecognition();
+
         console.log('Recording started');
 
     } catch (error) {
         console.error('Error starting recording:', error);
         alert('마이크 접근 권한이 필요합니다.');
     }
+}
+
+// Start speech recognition
+function startSpeechRecognition() {
+    // Check browser support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        console.warn('Speech recognition not supported in this browser');
+        return;
+    }
+
+    try {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'ko-KR';
+
+        finalTranscript = '';
+        interimTranscript = '';
+
+        // Show live transcript section
+        document.getElementById('transcript-live').style.display = 'block';
+
+        recognition.onresult = (event) => {
+            interimTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+
+            // Update live transcript display
+            const liveText = document.getElementById('live-transcript-text');
+            liveText.classList.add('recognizing');
+            liveText.innerHTML = finalTranscript + '<span style="color: #999;">' + interimTranscript + '</span>';
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+        };
+
+        recognition.onend = () => {
+            const liveText = document.getElementById('live-transcript-text');
+            liveText.classList.remove('recognizing');
+
+            // Show final transcript in recorded audio section
+            if (finalTranscript.trim()) {
+                document.getElementById('final-transcript').style.display = 'block';
+                document.getElementById('final-transcript-text').textContent = finalTranscript.trim();
+            }
+        };
+
+        recognition.start();
+        console.log('Speech recognition started');
+
+    } catch (error) {
+        console.error('Error starting speech recognition:', error);
+    }
+}
+
+// Stop speech recognition
+function stopSpeechRecognition() {
+    if (recognition) {
+        recognition.stop();
+        recognition = null;
+    }
+}
+
+// Clear transcript
+function clearTranscript() {
+    finalTranscript = '';
+    interimTranscript = '';
+    document.getElementById('live-transcript-text').textContent = '음성을 인식하는 중...';
+    document.getElementById('final-transcript').style.display = 'none';
 }
 
 // Stop recording
@@ -181,6 +269,9 @@ function stopRecording() {
         if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
         }
+
+        // Stop speech recognition
+        stopSpeechRecognition();
 
         // Update UI
         const recordBtn = document.getElementById('record-btn');
