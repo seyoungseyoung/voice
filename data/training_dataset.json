@@ -1,0 +1,250 @@
+{
+  "conversations": [
+    {
+      "audio_file": "sample_prosecutor.wav",
+      "segments": [
+        {
+          "text": "안녕하세요, 서울중앙지검 김철수 검사입니다.",
+          "speaker": "CALLER",
+          "start_time": 0.0,
+          "end_time": 3.0,
+          "tags": [
+            "접근"
+          ]
+        },
+        {
+          "text": "네? 검찰청이요?",
+          "speaker": "VICTIM",
+          "start_time": 3.0,
+          "end_time": 4.5,
+          "tags": [
+            "정상"
+          ]
+        },
+        {
+          "text": "당신 명의의 계좌가 보이스피싱 범죄에 사용되었습니다. 지금 바로 확인하지 않으면 내일 체포영장이 발부됩니다.",
+          "speaker": "CALLER",
+          "start_time": 4.5,
+          "end_time": 10.0,
+          "tags": [
+            "협박"
+          ]
+        },
+        {
+          "text": "주민등록번호와 계좌번호를 말씀해주세요.",
+          "speaker": "CALLER",
+          "start_time": 10.0,
+          "end_time": 12.0,
+          "tags": [
+            "개인정보요구"
+          ]
+        }
+      ],
+      "metadata": {
+        "type": "검찰_사칭",
+        "severity": "high"
+      },
+      "statistics": {
+        "total_segments": 4,
+        "total_duration": 12.0,
+        "tag_counts": {
+          "접근": 1,
+          "협박": 1,
+          "개인정보요구": 1,
+          "송금유도": 0,
+          "정상": 1
+        },
+        "is_phishing": true
+      }
+    },
+    {
+      "audio_file": "sample_fss.wav",
+      "segments": [
+        {
+          "text": "금융감독원입니다. 고객님 계좌에서 이상거래가 감지되었습니다.",
+          "speaker": "CALLER",
+          "start_time": 0.0,
+          "end_time": 4.0,
+          "tags": [
+            "접근"
+          ]
+        },
+        {
+          "text": "즉시 안전계좌로 자금을 이체하셔야 피해를 막을 수 있습니다.",
+          "speaker": "CALLER",
+          "start_time": 4.0,
+          "end_time": 7.0,
+          "tags": [
+            "송금유도"
+          ]
+        },
+        {
+          "text": "카드번호와 OTP 번호를 알려주세요.",
+          "speaker": "CALLER",
+          "start_time": 7.0,
+          "end_time": 9.0,
+          "tags": [
+            "개인정보요구"
+          ]
+        }
+      ],
+      "metadata": {
+        "type": "금감원_사칭",
+        "severity": "high"
+      },
+      "statistics": {
+        "total_segments": 3,
+        "total_duration": 9.0,
+        "tag_counts": {
+          "접근": 1,
+          "협박": 0,
+          "개인정보요구": 1,
+          "송금유도": 1,
+          "정상": 0
+        },
+        "is_phishing": true
+      }
+    },
+    {
+      "audio_file": "sample_police.wav",
+      "segments": [
+        {
+          "text": "서울경찰청 금융범죄수사대입니다.",
+          "speaker": "CALLER",
+          "start_time": 0.0,
+          "end_time": 2.5,
+          "tags": [
+            "접근"
+          ]
+        },
+        {
+          "text": "고객님 계좌가 범죄에 연루되어 압류 조치가 예정되어 있습니다.",
+          "speaker": "CALLER",
+          "start_time": 2.5,
+          "end_time": 6.0,
+          "tags": [
+            "협박"
+          ]
+        },
+        {
+          "text": "지금 당장 전 재산을 보호예수 계좌로 송금하셔야 합니다.",
+          "speaker": "CALLER",
+          "start_time": 6.0,
+          "end_time": 9.0,
+          "tags": [
+            "송금유도"
+          ]
+        }
+      ],
+      "metadata": {
+        "type": "경찰_사칭",
+        "severity": "critical"
+      },
+      "statistics": {
+        "total_segments": 3,
+        "total_duration": 9.0,
+        "tag_counts": {
+          "접근": 1,
+          "협박": 1,
+          "개인정보요구": 0,
+          "송금유도": 1,
+          "정상": 0
+        },
+        "is_phishing": true
+      }
+    },
+    {
+      "audio_file": "sample_bank.wav",
+      "segments": [
+        {
+          "text": "국민은행 보안팀입니다. 고객님 계좌에서 해킹 시도가 감지되었습니다.",
+          "speaker": "CALLER",
+          "start_time": 0.0,
+          "end_time": 4.0,
+          "tags": [
+            "접근"
+          ]
+        },
+        {
+          "text": "보안카드 번호 전체를 말씀해주시면 계좌를 보호하겠습니다.",
+          "speaker": "CALLER",
+          "start_time": 4.0,
+          "end_time": 7.0,
+          "tags": [
+            "개인정보요구"
+          ]
+        }
+      ],
+      "metadata": {
+        "type": "은행_사칭",
+        "severity": "medium"
+      },
+      "statistics": {
+        "total_segments": 2,
+        "total_duration": 7.0,
+        "tag_counts": {
+          "접근": 1,
+          "협박": 0,
+          "개인정보요구": 1,
+          "송금유도": 0,
+          "정상": 0
+        },
+        "is_phishing": true
+      }
+    },
+    {
+      "audio_file": "sample_nts.wav",
+      "segments": [
+        {
+          "text": "국세청입니다. 체납된 세금이 있어 연락드렸습니다.",
+          "speaker": "CALLER",
+          "start_time": 0.0,
+          "end_time": 3.0,
+          "tags": [
+            "접근"
+          ]
+        },
+        {
+          "text": "오늘 중으로 납부하지 않으면 재산 압류와 법적 처벌을 받게 됩니다.",
+          "speaker": "CALLER",
+          "start_time": 3.0,
+          "end_time": 7.0,
+          "tags": [
+            "협박"
+          ]
+        },
+        {
+          "text": "지금 즉시 계좌로 입금하세요.",
+          "speaker": "CALLER",
+          "start_time": 7.0,
+          "end_time": 9.0,
+          "tags": [
+            "송금유도"
+          ]
+        }
+      ],
+      "metadata": {
+        "type": "국세청_사칭",
+        "severity": "high"
+      },
+      "statistics": {
+        "total_segments": 3,
+        "total_duration": 9.0,
+        "tag_counts": {
+          "접근": 1,
+          "협박": 1,
+          "개인정보요구": 0,
+          "송금유도": 1,
+          "정상": 0
+        },
+        "is_phishing": true
+      }
+    }
+  ],
+  "statistics": {
+    "total_conversations": 5,
+    "phishing_conversations": 5,
+    "normal_conversations": 0,
+    "total_segments": 15
+  }
+}

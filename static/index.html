@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel-Voice | AI 보이스피싱 탐지 시스템</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Sentinel-Voice</h1>
+            <p class="subtitle">AI 기반 실시간 보이스피싱 탐지 시스템</p>
+        </header>
+
+        <div class="demo-section">
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('text')">텍스트 분석</button>
+                <button class="tab-btn" onclick="switchTab('audio')">음성 파일 분석</button>
+                <button class="tab-btn" onclick="switchTab('scenarios')">데모 시나리오</button>
+            </div>
+
+            <!-- Text Analysis Tab -->
+            <div id="text-tab" class="tab-content active">
+                <div class="input-section">
+                    <h2>통화 내용 입력</h2>
+                    <textarea id="text-input" placeholder="분석할 통화 내용을 입력하세요...&#10;&#10;예시: 검찰청입니다. 당신 계좌가 범죄에 연루되었으니 즉시 송금하세요." rows="8"></textarea>
+
+                    <div class="options">
+                        <label>
+                            <input type="checkbox" id="pii-masking" checked>
+                            개인정보 마스킹 활성화
+                        </label>
+                    </div>
+
+                    <button class="btn-primary" onclick="analyzeText()">분석하기</button>
+                </div>
+            </div>
+
+            <!-- Audio Analysis Tab -->
+            <div id="audio-tab" class="tab-content">
+                <div class="input-section">
+                    <h2>음성 파일 업로드</h2>
+                    <div class="file-upload">
+                        <input type="file" id="audio-file" accept=".wav,.mp3,.flac,.m4a">
+                        <label for="audio-file" class="file-label">
+                            <span id="file-name">파일을 선택하세요</span>
+                            <span class="file-hint">(.wav, .mp3, .flac, .m4a)</span>
+                        </label>
+                    </div>
+                    <button class="btn-primary" onclick="analyzeAudio()">분석하기</button>
+                </div>
+            </div>
+
+            <!-- Scenarios Tab -->
+            <div id="scenarios-tab" class="tab-content">
+                <div class="scenarios">
+                    <h2>데모 시나리오</h2>
+
+                    <div class="scenario-card">
+                        <h3>🚨 시나리오 1: 검찰 사칭</h3>
+                        <p class="scenario-text">"안녕하세요, 서울중앙지검 김철수 검사입니다. 당신 명의의 계좌가 보이스피싱 범죄에 사용되었습니다. 지금 바로 확인하지 않으면 내일 체포영장이 발부됩니다. 주민등록번호와 계좌번호를 말씀해주세요."</p>
+                        <button class="btn-secondary" onclick="loadScenario(1)">이 시나리오 테스트</button>
+                    </div>
+
+                    <div class="scenario-card">
+                        <h3>⚠️ 시나리오 2: 금융감독원 사칭</h3>
+                        <p class="scenario-text">"금융감독원입니다. 고객님 계좌에서 이상거래가 감지되었습니다. 즉시 안전계좌로 자금을 이체하셔야 피해를 막을 수 있습니다. 카드번호 1234-5678-9012-3456과 OTP 번호를 알려주세요."</p>
+                        <button class="btn-secondary" onclick="loadScenario(2)">이 시나리오 테스트</button>
+                    </div>
+
+                    <div class="scenario-card">
+                        <h3>✅ 시나리오 3: 정상 통화</h3>
+                        <p class="scenario-text">"안녕하세요. 택배 배송 관련하여 연락드렸습니다. 오늘 오후 2시경 방문 예정인데 댁에 계실까요?"</p>
+                        <button class="btn-secondary" onclick="loadScenario(3)">이 시나리오 테스트</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results" class="results-section" style="display: none;">
+                <h2>분석 결과</h2>
+
+                <!-- Risk Score Display -->
+                <div class="risk-display">
+                    <div class="risk-gauge">
+                        <div class="gauge-container">
+                            <svg viewBox="0 0 200 120" class="gauge-svg">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" class="gauge-bg" fill="none" stroke="#e0e0e0" stroke-width="20"/>
+                                <path id="gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100" class="gauge-fill" fill="none" stroke="#4CAF50" stroke-width="20"/>
+                            </svg>
+                            <div class="gauge-text">
+                                <div id="risk-score" class="score">0</div>
+                                <div class="score-label">위험도</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="risk-info">
+                        <div id="risk-level" class="risk-level">SAFE</div>
+                        <div id="alert-message" class="alert-message">정상 통화로 판단됩니다.</div>
+                        <div id="is-phishing" class="phishing-badge">
+                            <span>피싱 여부: </span>
+                            <strong>아니오</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Component Scores -->
+                <div class="component-scores">
+                    <h3>세부 점수 분석</h3>
+                    <div class="score-bars">
+                        <div class="score-bar">
+                            <label>키워드 분석 (30%)</label>
+                            <div class="bar-container">
+                                <div id="keyword-bar" class="bar" style="width: 0%"></div>
+                                <span id="keyword-score" class="bar-value">0</span>
+                            </div>
+                        </div>
+                        <div class="score-bar">
+                            <label>감정 분석 (30%)</label>
+                            <div class="bar-container">
+                                <div id="sentiment-bar" class="bar" style="width: 0%"></div>
+                                <span id="sentiment-score" class="bar-value">0</span>
+                            </div>
+                        </div>
+                        <div class="score-bar">
+                            <label>유사도 분석 (40%)</label>
+                            <div class="bar-container">
+                                <div id="similarity-bar" class="bar" style="width: 0%"></div>
+                                <span id="similarity-score" class="bar-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detected Techniques -->
+                <div class="techniques-section">
+                    <h3>탐지된 피싱 기법</h3>
+                    <div id="techniques" class="techniques-list">
+                        <span class="no-data">탐지된 기법이 없습니다.</span>
+                    </div>
+                </div>
+
+                <!-- PII Masking Results -->
+                <div id="pii-section" class="pii-section" style="display: none;">
+                    <h3>개인정보 마스킹 결과</h3>
+                    <div id="masked-text" class="masked-text"></div>
+                    <div id="pii-detected" class="pii-detected"></div>
+                </div>
+
+                <!-- Transcript (for audio analysis) -->
+                <div id="transcript-section" class="transcript-section" style="display: none;">
+                    <h3>음성 전사 결과</h3>
+                    <div id="transcript" class="transcript"></div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>분석 중...</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>Sentinel-Voice v0.1.0 | DACON 피싱·스캠 예방 서비스 개발 경진대회</p>
+            <p>
+                <a href="/docs" target="_blank">API 문서</a> |
+                <a href="https://github.com/seyoungseyoung/voice" target="_blank">GitHub</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

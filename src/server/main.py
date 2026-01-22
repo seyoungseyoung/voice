@@ -3,7 +3,8 @@ FastAPI server for Sentinel-Voice phishing detection
 """
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pathlib import Path
 import tempfile
@@ -58,6 +59,15 @@ async def startup_event():
         raise
 
 
+# Mount static files
+from pathlib import Path
+ROOT_DIR = Path(__file__).parent.parent.parent
+static_path = ROOT_DIR / "static"
+
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+
 class AnalysisRequest(BaseModel):
     """Request model for text analysis"""
     text: str
@@ -78,15 +88,22 @@ class AnalysisResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Serve demo page"""
+    demo_page = ROOT_DIR / "static" / "index.html"
+    if demo_page.exists():
+        return FileResponse(demo_page)
+
+    # Fallback to JSON if demo page doesn't exist
     return {
         "service": "Sentinel-Voice",
         "version": "0.1.0",
         "status": "running",
         "endpoints": {
+            "demo": "/",
             "analyze_audio": "/api/analyze/audio",
             "analyze_text": "/api/analyze/text",
-            "health": "/health"
+            "health": "/health",
+            "api_docs": "/docs"
         }
     }
 
