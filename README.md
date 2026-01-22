@@ -60,13 +60,60 @@ voice/
 └── requirements.txt       # 의존성
 ```
 
+## 사용 방법
+
+### API 서버 실행
+
+```bash
+# 서버 시작
+python scripts/run_server.py
+
+# 또는 포트 지정
+python scripts/run_server.py --host 0.0.0.0 --port 8000
+```
+
+API 문서: http://localhost:8000/docs
+
+### 주요 스크립트
+
+```bash
+# 데이터 수집
+python scripts/collect_data.py
+
+# 데이터 전처리
+python scripts/preprocess_data.py --input-dir data/raw --output-dir data/processed
+
+# 데이터 라벨링
+python scripts/label_data.py --transcript transcript.json --audio audio.wav
+
+# Vector DB 구축
+python scripts/build_vector_db.py --labeled-data data/training_dataset.json
+
+# STT 벤치마크
+python scripts/benchmark_stt.py --test-dir data/processed --whisper-models tiny,base
+
+# 테스트 실행
+pytest tests/
+```
+
 ## 개발 로드맵
 
-- [x] Phase 1: 프로젝트 환경 설정
-- [ ] Phase 1: 데이터 수집 및 전처리
-- [ ] Phase 2: 모델 탐색 및 최적화
-- [ ] Phase 3: 로직 설계 (PII Masking, Risk Scoring)
-- [ ] Phase 4: MVP 제작 및 데모
+- [x] Phase 1: 데이터 엔지니어링
+  - [x] 프로젝트 환경 설정
+  - [x] 데이터 수집 도구
+  - [x] 데이터 전처리 (노이즈 제거, 정규화)
+  - [x] 데이터 라벨링 시스템
+  - [x] Vector Database 구축 (FAISS)
+- [x] Phase 2: 모델 탐색 및 최적화
+  - [x] STT 모델 벤치마킹 (Whisper vs Clova Speech)
+  - [x] LLM 파이프라인 설계 (LangChain)
+- [x] Phase 3: 로직 설계
+  - [x] PII Masking 모듈
+  - [x] Risk Scoring Algorithm (Keyword + Sentiment + Similarity)
+- [x] Phase 4: MVP 제작
+  - [x] FastAPI 백엔드 서버
+  - [ ] Flutter/Android 프론트엔드
+  - [ ] 데모 시나리오 및 최적화
 
 ## 라이선스
 
