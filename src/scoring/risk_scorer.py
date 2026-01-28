@@ -79,8 +79,8 @@ class RiskScorer:
         }
 
         # Sentiment keywords
-        self.fear_keywords = ["위험", "피해", "손해", "문제", "심각", "걱정"]
-        self.urgency_keywords = ["빨리", "서둘러", "늦으면", "마감", "기한"]
+        self.fear_keywords = ["위험", "피해", "손해", "문제", "심각", "걱정", "체포", "구속", "압류", "영장", "범죄", "처벌", "고소", "고발"]
+        self.urgency_keywords = ["빨리", "서둘러", "늦으면", "마감", "기한", "즉시", "지금", "바로", "당장", "긴급", "시급"]
 
     def calculate_keyword_score(self, text: str) -> Tuple[float, Dict]:
         """

@@ -7,7 +7,16 @@
       "Bash(git commit:*)",
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(dir)",
+      "Bash(dir:*)",
+      "Bash(xcopy:*)",
+      "Bash(robocopy:*)",
+      "Bash(pip install:*)",
+      "Bash(where:*)",
+      "Bash(winget install:*)",
+      "Bash(curl:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []

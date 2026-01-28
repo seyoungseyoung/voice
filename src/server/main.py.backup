@@ -15,8 +15,6 @@ from typing import Optional
 from src.nlp.phishing_pipeline import PhishingDetectionPipeline
 from src.scoring.risk_scorer import RiskScorer
 from src.security.pii_masking import PIIMasker
-from src.llm.multi_agent_detector import MultiAgentPhishingDetector
-from src.llm.multi_llm_ensemble import MultiLLMEnsemble
 from src.config import config
 
 logging.basicConfig(level=logging.INFO)
@@ -42,14 +40,12 @@ app.add_middleware(
 pipeline = None
 risk_scorer = None
 pii_masker = None
-clovax_client = None
-llm_ensemble = None
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize models on startup"""
-    global pipeline, risk_scorer, pii_masker, clovax_client, llm_ensemble
+    global pipeline, risk_scorer, pii_masker
 
     logger.info("Initializing Sentinel-Voice pipeline...")
 
@@ -57,20 +53,6 @@ async def startup_event():
         pipeline = PhishingDetectionPipeline()
         risk_scorer = RiskScorer()
         pii_masker = PIIMasker()
-
-        # Initialize Multi-LLM Ensemble for comparison
-        llm_ensemble = MultiLLMEnsemble()
-
-        # Fallback to single multi-agent detector
-        clovax_client = MultiAgentPhishingDetector()
-
-        if llm_ensemble.is_available():
-            logger.info(f"✓ Multi-LLM Comparison enabled: {len(llm_ensemble.available_llms)} LLMs available")
-        elif clovax_client.is_available():
-            logger.info("✓ Multi-Agent ClovaX LLM enabled (3 agents)")
-        else:
-            logger.warning("⚠ No LLM configured, using rule-based fallback")
-
         logger.info("✓ Pipeline initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize pipeline: {e}")
@@ -126,20 +108,6 @@ async def root():
     }
 
 
-def _get_risk_level(score: float) -> str:
-    """Helper function to determine risk level from score"""
-    if score >= 90:
-        return "CRITICAL"
-    elif score >= 70:
-        return "HIGH"
-    elif score >= 50:
-        return "MEDIUM"
-    elif score >= 30:
-        return "LOW"
-    else:
-        return "SAFE"
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -147,8 +115,7 @@ async def health_check():
         "status": "healthy",
         "pipeline_ready": pipeline is not None,
         "scorer_ready": risk_scorer is not None,
-        "masker_ready": pii_masker is not None,
-        "clovax_ready": clovax_client is not None and clovax_client.is_available()
+        "masker_ready": pii_masker is not None
     }
 
 
@@ -244,72 +211,8 @@ async def analyze_text(request: AnalysisRequest):
         # Search for similar cases using Vector DB
         similar_cases = pipeline.search_similar_cases(request.text, top_k=5)
 
-        # Use Multi-LLM Ensemble for comparison if available
-        if llm_ensemble and llm_ensemble.is_available():
-            logger.info(f"🔬 Using Multi-LLM Comparison ({len(llm_ensemble.available_llms)} LLMs)")
-            llm_result = llm_ensemble.analyze(request.text, similar_cases)
-
-            # Print comparison table to console
-            if "comparison_table" in llm_result:
-                print(llm_result["comparison_table"])
-                print(llm_result["detailed_analysis"])
-
-            risk_result = {
-                "risk_score": llm_result["risk_score"],
-                "risk_level": _get_risk_level(llm_result["risk_score"]),
-                "is_phishing": llm_result["is_phishing"],
-                "alert_message": llm_result["recommendation"],
-                "component_scores": {
-                    "llm_confidence": llm_result.get("confidence", 0),
-                    "similarity": max([s for _, s, _ in similar_cases], default=0) * 100,
-                    **llm_result.get("llm_scores", {})  # Individual LLM scores
-                },
-                "metadata": {
-                    "mode": "Multi-LLM Comparison",
-                    "comparison_table": llm_result.get("comparison_table", ""),
-                    "detailed_analysis": llm_result.get("detailed_analysis", ""),
-                    "statistics": llm_result.get("statistics", {}),
-                    "reasoning": llm_result.get("reasoning", ""),
-                    "red_flags": llm_result.get("red_flags", [])
-                }
-            }
-            techniques = llm_result.get("techniques", [])
-
-        # Fallback to single multi-agent ClovaX
-        elif clovax_client and clovax_client.is_available():
-            logger.info("🤖 Using Multi-Agent ClovaX (3 agents) for contextual analysis")
-            llm_result = clovax_client.analyze(request.text, similar_cases)
-
-            risk_result = {
-                "risk_score": llm_result["risk_score"],
-                "risk_level": _get_risk_level(llm_result["risk_score"]),
-                "is_phishing": llm_result["is_phishing"],
-                "alert_message": llm_result["recommendation"],
-                "component_scores": {
-                    "llm_confidence": llm_result.get("confidence", 0),
-                    "similarity": max([s for _, s, _ in similar_cases], default=0) * 100,
-                    "agent_context": llm_result["agent_scores"]["context"],
-                    "agent_psychological": llm_result["agent_scores"]["psychological"],
-                    "agent_financial": llm_result["agent_scores"]["financial"]
-                },
-                "metadata": {
-                    "mode": "Multi-Agent LLM",
-                    "reasoning": llm_result.get("reasoning", ""),
-                    "red_flags": llm_result.get("red_flags", [])
-                }
-            }
-            techniques = llm_result.get("techniques", [])
-
-        # Fallback to rule-based
-        else:
-            logger.info("📊 Using rule-based analysis (No LLM available)")
-            risk_result = risk_scorer.calculate_risk_score(request.text, similar_cases)
-
-            # Extract techniques from metadata
-            techniques = []
-            keyword_matches = risk_result["metadata"]["keyword"].get("matches", {})
-            for category, data in keyword_matches.items():
-                techniques.append(f"{category} ({data['count']}건)")
+        # Calculate risk score with similar cases
+        risk_result = risk_scorer.calculate_risk_score(request.text, similar_cases)
 
         # PII masking
         masked_text = None
@@ -318,6 +221,12 @@ async def analyze_text(request: AnalysisRequest):
         if request.enable_pii_masking:
             masked_text, pii_metadata = pii_masker.mask_text(request.text)
             pii_detected = pii_metadata.get("masked_types", {})
+
+        # Extract techniques from metadata
+        techniques = []
+        keyword_matches = risk_result["metadata"]["keyword"].get("matches", {})
+        for category, data in keyword_matches.items():
+            techniques.append(f"{category} ({data['count']}건)")
 
         response = AnalysisResponse(
             risk_score=risk_result["risk_score"],

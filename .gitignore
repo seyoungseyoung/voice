@@ -62,3 +62,7 @@ htmlcov/
 *.mp3
 *.flac
 *.m4a
+
+# Benchmark logs
+benchmark*.txt
+*.txt

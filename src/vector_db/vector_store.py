@@ -69,13 +69,15 @@ class PhishingVectorStore:
         embeddings = self.model.encode(
             scripts,
             show_progress_bar=True,
-            convert_to_numpy=True
+            convert_to_numpy=True,
+            normalize_embeddings=True  # Normalize for cosine similarity
         )
 
         # Initialize FAISS index if not exists
         if self.index is None:
-            self.index = faiss.IndexFlatL2(self.embedding_dim)
-            logger.info(f"Created FAISS index with dimension {self.embedding_dim}")
+            # Use IndexFlatIP for cosine similarity (with normalized vectors)
+            self.index = faiss.IndexFlatIP(self.embedding_dim)
+            logger.info(f"Created FAISS index with dimension {self.embedding_dim} (Cosine Similarity)")
 
         # Add to FAISS index
         self.index.add(embeddings.astype('float32'))
@@ -111,27 +113,27 @@ class PhishingVectorStore:
             logger.warning("Vector database is empty")
             return []
 
-        # Encode query
-        query_embedding = self.model.encode([query], convert_to_numpy=True)
+        # Encode query (normalize for cosine similarity)
+        query_embedding = self.model.encode([query], convert_to_numpy=True, normalize_embeddings=True)
 
         # Search in FAISS
-        distances, indices = self.index.search(
+        scores, indices = self.index.search(
             query_embedding.astype('float32'),
             min(top_k, len(self.scripts))
         )
 
-        # Convert distances to similarity scores (lower distance = higher similarity)
-        # Using inverse distance as similarity score
+        # IndexFlatIP returns cosine similarity (higher is better, range -1 to 1)
+        # Convert to 0-1 range: (score + 1) / 2
         results = []
-        for dist, idx in zip(distances[0], indices[0]):
+        for score, idx in zip(scores[0], indices[0]):
             if idx < len(self.scripts):
-                # Convert L2 distance to similarity score (0-1)
-                similarity = 1 / (1 + dist)
+                # Convert cosine similarity (-1 to 1) to 0-1 range
+                similarity = (float(score) + 1.0) / 2.0
 
                 if score_threshold is None or similarity >= score_threshold:
                     results.append((
                         self.scripts[idx],
-                        float(similarity),
+                        similarity,
                         self.metadata[idx]
                     ))
 
