@@ -73,29 +73,31 @@ async function analyzeText() {
         return;
     }
 
-    const piiMasking = document.getElementById('pii-masking').checked;
-
     // Show loading
     showLoading();
 
     try {
-        const response = await fetch(`${API_BASE}/api/analyze/text`, {
+        // Use Gemini + Rule Filter API (new system)
+        const response = await fetch(`${API_BASE}/api/analyze/gemini`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 text: text,
-                enable_pii_masking: piiMasking
+                enable_filter: true
             })
         });
 
         if (!response.ok) {
+            if (response.status === 429) {
+                throw new Error('요청 제한 초과: 1분당 10회까지만 가능합니다.');
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        displayResults(data);
+        displayGeminiResults(data);
     } catch (error) {
         console.error('Error:', error);
         alert('분석 중 오류가 발생했습니다: ' + error.message);
@@ -125,17 +127,29 @@ async function startRecording() {
             }
         });
 
-        // Create media recorder
-        mediaRecorder = new MediaRecorder(audioStream);
+        // Create media recorder with explicit format
+        // Try WebM Opus first (best compatibility), fallback to default
+        let mimeType = 'audio/webm;codecs=opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'audio/webm';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = ''; // Use default
+            }
+        }
+
+        const options = mimeType ? { mimeType } : {};
+        mediaRecorder = new MediaRecorder(audioStream, options);
         audioChunks = [];
+
+        console.log('[DEBUG] Recording with mimeType:', mimeType || 'default');
 
         mediaRecorder.ondataavailable = (event) => {
             audioChunks.push(event.data);
         };
 
         mediaRecorder.onstop = () => {
-            // Create blob from chunks
-            recordedBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            // Create blob from chunks with actual recorded type
+            recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
 
             // Create playback URL
             const audioURL = URL.createObjectURL(recordedBlob);
@@ -355,7 +369,12 @@ async function analyzeRecordedAudio() {
 
     try {
         const formData = new FormData();
-        formData.append('file', recordedBlob, 'recording.wav');
+        // Use correct file extension based on recorded mimeType
+        const extension = recordedBlob.type.includes('webm') ? '.webm' :
+                         recordedBlob.type.includes('ogg') ? '.ogg' :
+                         recordedBlob.type.includes('m4a') ? '.m4a' :
+                         recordedBlob.type.includes('mp4') ? '.m4a' : '.wav';
+        formData.append('file', recordedBlob, `recording${extension}`);
 
         const response = await fetch(`${API_BASE}/api/analyze/audio`, {
             method: 'POST',
@@ -367,7 +386,21 @@ async function analyzeRecordedAudio() {
         }
 
         const data = await response.json();
-        displayResults(data, true);
+
+        // Convert AnalysisResponse format to Gemini format for display
+        const geminiFormat = {
+            score: data.risk_score,
+            risk_level: data.risk_level,
+            is_phishing: data.is_phishing,
+            reasoning: data.alert_message,
+            model: "Gemini 2.5 Flash + Rule Filter",
+            filter_applied: data.component_scores?.filter_applied || false,
+            llm_score: data.component_scores?.llm_score || data.risk_score,
+            keyword_analysis: {},
+            cached: false
+        };
+
+        displayGeminiResults(geminiFormat);
     } catch (error) {
         console.error('Error:', error);
         alert('분석 중 오류가 발생했습니다: ' + error.message);
@@ -386,8 +419,17 @@ async function analyzeAudioFile() {
         return;
     }
 
-    // Show loading
-    showLoading();
+    // Get audio duration for time estimation
+    let audioDuration = null;
+    try {
+        audioDuration = await getAudioDuration(file);
+        console.log('[DEBUG] Audio duration:', audioDuration, 'seconds');
+    } catch (e) {
+        console.warn('Could not determine audio duration:', e);
+    }
+
+    // Show loading with estimated time
+    showLoading(audioDuration);
 
     try {
         const formData = new FormData();
@@ -413,6 +455,46 @@ async function analyzeAudioFile() {
 }
 
 // Display results
+// Display Gemini API results
+function displayGeminiResults(data) {
+    // Show results section
+    document.getElementById('results').style.display = 'block';
+
+    // Scroll to results
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+    // Update risk score (using Gemini's score 0-100)
+    updateRiskScore(data.score, data.risk_level);
+
+    // Update risk info
+    document.getElementById('risk-level').textContent = data.risk_level;
+    document.getElementById('risk-level').className = `risk-level ${data.is_phishing ? 'CRITICAL' : 'SAFE'}`;
+    document.getElementById('alert-message').textContent = data.reasoning;
+
+    const phishingBadge = document.getElementById('is-phishing');
+    phishingBadge.innerHTML = `<span>피싱 여부: </span><strong>${data.is_phishing ? '예' : '아니오'}</strong>`;
+    phishingBadge.style.color = data.is_phishing ? 'var(--danger-color)' : 'var(--success-color)';
+
+    // Hide component scores and techniques sections
+    const componentScoresDiv = document.querySelector('.component-scores');
+    const scoresContainer = document.getElementById('scores-container');
+    if (componentScoresDiv) {
+        componentScoresDiv.style.display = 'none';
+    }
+    if (scoresContainer) {
+        scoresContainer.style.display = 'none';
+    }
+
+    const techniquesDiv = document.querySelector('.techniques');
+    if (techniquesDiv) {
+        techniquesDiv.style.display = 'none';
+    }
+
+    // Hide PII and transcript sections (not used in Gemini API)
+    document.getElementById('pii-section').style.display = 'none';
+    document.getElementById('transcript-section').style.display = 'none';
+}
+
 function displayResults(data, isAudio = false) {
     // Show results section
     document.getElementById('results').style.display = 'block';
@@ -499,14 +581,18 @@ function updateRiskScore(score, level) {
 
 // Update component scores
 function updateComponentScores(scores) {
-    updateBar('keyword', scores.keyword);
-    updateBar('sentiment', scores.sentiment);
-    updateBar('similarity', scores.similarity);
+    if (!scores) return;
+
+    if (scores.keyword !== undefined) updateBar('keyword', scores.keyword);
+    if (scores.sentiment !== undefined) updateBar('sentiment', scores.sentiment);
+    if (scores.similarity !== undefined) updateBar('similarity', scores.similarity);
 }
 
 function updateBar(type, value) {
     const bar = document.getElementById(`${type}-bar`);
     const valueSpan = document.getElementById(`${type}-score`);
+
+    if (!bar || !valueSpan || value === undefined) return;
 
     setTimeout(() => {
         bar.style.width = `${value}%`;
@@ -528,14 +614,70 @@ function updateTechniques(techniques) {
     ).join('');
 }
 
-// Loading state
-function showLoading() {
+// Helper function to get audio duration
+function getAudioDuration(file) {
+    return new Promise((resolve, reject) => {
+        const audio = document.createElement('audio');
+        audio.preload = 'metadata';
+
+        audio.onloadedmetadata = function() {
+            window.URL.revokeObjectURL(audio.src);
+            resolve(audio.duration);
+        };
+
+        audio.onerror = function() {
+            reject(new Error('Failed to load audio'));
+        };
+
+        audio.src = URL.createObjectURL(file);
+    });
+}
+
+// Loading state with timer
+let loadingStartTime = null;
+let loadingTimer = null;
+
+function showLoading(audioDuration = null) {
     document.getElementById('loading').style.display = 'block';
     document.getElementById('results').style.display = 'none';
+
+    // Start timer
+    loadingStartTime = Date.now();
+    const timerElement = document.querySelector('.loading-text');
+
+    // Estimate processing time: ~0.5x audio duration for STT + 2s for analysis
+    const estimatedTime = audioDuration ? Math.ceil(audioDuration * 0.5 + 2) : null;
+
+    if (timerElement) {
+        loadingTimer = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - loadingStartTime) / 1000);
+
+            if (estimatedTime && elapsed < estimatedTime) {
+                const remaining = estimatedTime - elapsed;
+                timerElement.textContent = `분석 중... (${elapsed}초 경과 / 약 ${remaining}초 남음)`;
+            } else if (estimatedTime && elapsed >= estimatedTime) {
+                timerElement.textContent = `분석 중... (${elapsed}초 경과 / 거의 완료)`;
+            } else {
+                timerElement.textContent = `분석 중... (${elapsed}초 경과)`;
+            }
+        }, 100);
+    }
 }
 
 function hideLoading() {
     document.getElementById('loading').style.display = 'none';
+
+    // Clear timer
+    if (loadingTimer) {
+        clearInterval(loadingTimer);
+        loadingTimer = null;
+    }
+
+    // Reset text
+    const timerElement = document.querySelector('.loading-text');
+    if (timerElement) {
+        timerElement.textContent = '분석 중...';
+    }
 }
 
 // File input handling
