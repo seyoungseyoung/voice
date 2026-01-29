@@ -42,7 +42,8 @@ class GeminiClient(BaseLLMClient):
                 }],
                 "generationConfig": {
                     "temperature": 0.2,
-                    "maxOutputTokens": 800
+                    "maxOutputTokens": 2048,
+                    "response_mime_type": "application/json"
                 }
             }
 
@@ -58,6 +59,10 @@ class GeminiClient(BaseLLMClient):
 
             # Extract content
             content = result["candidates"][0]["content"]["parts"][0]["text"]
+
+            # Log raw Gemini response for debugging
+            logger.info(f"[DEBUG] Raw Gemini response (first 300 chars): {content[:300]}")
+
             parsed = self._parse_json_response(content)
             parsed["model"] = self.model_name
 

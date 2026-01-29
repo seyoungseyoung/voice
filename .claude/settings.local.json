@@ -16,7 +16,17 @@
       "Bash(where:*)",
       "Bash(winget install:*)",
       "Bash(curl:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(tar:*)",
+      "Bash(copy:*)",
+      "Bash(cmd //C \"set PATH=%CD%\\ffmpeg-master-latest-win64-gpl\\bin;%PATH% && python -m src.server.main\")",
+      "Bash(start:*)",
+      "Bash(powershell:*)",
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

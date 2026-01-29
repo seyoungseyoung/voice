@@ -383,6 +383,43 @@ textarea:focus {
 .bar-value {
     position: absolute;
     right: 10px;
+}
+
+/* Component score items */
+.component-score {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.score-label {
+    min-width: 120px;
+    font-weight: 600;
+    color: #333;
+}
+
+.score-bar-container {
+    flex: 1;
+    background: #e0e0e0;
+    height: 25px;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.score-bar {
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.5s ease;
+}
+
+.score-value {
+    min-width: 50px;
+    text-align: right;
+    font-weight: 600;
+    color: #555;
+}
     top: 50%;
     transform: translateY(-50%);
     font-weight: bold;

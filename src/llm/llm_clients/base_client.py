@@ -42,6 +42,9 @@ class BaseLLMClient(ABC):
     def _parse_json_response(self, content: str) -> Dict:
         """Common JSON parsing logic"""
         import json
+        import re
+
+        original_content = content[:200]  # Save for logging
 
         # Remove markdown code blocks
         if "```json" in content:
@@ -52,18 +55,22 @@ class BaseLLMClient(ABC):
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
-            logger.error(f"JSON parse error: {e}")
-            # Try to extract score manually
-            import re
+            logger.warning(f"JSON parse error: {e}")
+            logger.debug(f"Content (first 200 chars): {original_content}")
+
+            # Try to extract fields manually with better regex
             score_match = re.search(r'"score"\s*:\s*(\d+)', content)
-            if score_match:
-                return {
-                    "score": int(score_match.group(1)),
-                    "reasoning": "JSON parsing failed, extracted score only",
-                    "key_points": []
-                }
+            reasoning_match = re.search(r'"reasoning"\s*:\s*"([^"]*)', content)
+            is_phishing_match = re.search(r'"is_phishing"\s*:\s*(true|false)', content, re.IGNORECASE)
+
+            score = int(score_match.group(1)) if score_match else 50
+            reasoning = reasoning_match.group(1) if reasoning_match else "JSON 파싱 실패"
+
+            logger.info(f"Extracted manually: score={score}, reasoning={reasoning[:50]}")
+
             return {
-                "score": 50,
-                "reasoning": f"Parsing failed: {str(e)}",
+                "score": score,
+                "reasoning": reasoning,
+                "is_phishing": score >= 70,
                 "key_points": []
             }

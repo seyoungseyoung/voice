@@ -60,7 +60,7 @@ ation Detector (심리 조작 탐지) - 불안/긴급성/권위
         Run all 3 agents in parallel and combine results
         """
         if not self.is_available():
-            logger.warning("ClovaX not available")
+            logger.warning("Gemini not available")
             return self._fallback_result()
 
         try:
@@ -133,7 +133,7 @@ ation Detector (심리 조작 탐지) - 불안/긴급성/권위
 
 JSON:"""
 
-        return self._call_clovax(prompt, "context_analyst")
+        return self._call_llm(prompt, "context_analyst")
 
     def _agent2_psychological_analysis(self, text: str) -> Dict:
         """
@@ -174,7 +174,7 @@ JSON:"""
 
 JSON:"""
 
-        return self._call_clovax(prompt, "psychological_detector")
+        return self._call_llm(prompt, "psychological_detector")
 
     def _agent3_financial_analysis(self, text: str) -> Dict:
         """
@@ -212,59 +212,29 @@ JSON:"""
   "score": <0-100 정수>,
   "request_detected": <true/false>,
   "request_types": [<탐지된 요구 유형들>],
-  "reasoning": "<분석 근
-거 2-3문장>"
+  "reasoning": "<분석 근거 2-3문장>"
 }}
 
 JSON:"""
 
-        return self._call_clovax(prompt, "financial_detector")
+        return self._call_llm(prompt, "financial_detector")
 
-    def _call_clovax(self, prompt: str, agent_name: str) -> Dict:
-        """Call ClovaX API for a single agent"""
-        headers = {
-            "X-NCP-CLOVASTUDIO-API-KEY": self.api_key,
-            "X-NCP-APIGW-API-KEY": self.api_gateway_key,
-            "X-NCP-CLOVASTUDIO-REQUEST-ID": f"{self.request_id}-{agent_name}",
-            "Content-Type": "application/json"
-        }
-
-        payload = {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "당신은 보이스피싱 탐지 전문가입니다. 정확한 JSON 형식으로만 응답하세요."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "topP": 0.8,
-            "topK": 0,
-            "maxTokens": 800,
-            "temperature": 0.2,  # Low temperature for consistency
-            "repeatPenalty": 5.0,
-            "stopBefore": [],
-            "includeAiFilters": True
-        }
-
-        logger.debug(f"Calling {agent_name}...")
-        response = requests.post(
-            self.api_url,
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-
-        response.raise_for_status()
-        result = self._parse_agent_response(response.json(), agent_name)
+    def _call_llm(self, prompt: str, agent_name: str) -> Dict:
+        """Call Gemini API for a single agent"""
+        logger.debug(f"Calling Gemini for {agent_name}...")
+        
+        # GeminiClient의 analyze_phishing 메서드 활용
+        # (이미 JSON 파싱 로직이 포함되어 있다고 가정)
+        result = self.client.analyze_phishing(prompt, prompt) # text 인자에 prompt를 넣어서 처리
+        
+        # 결과에 agent 이름 추가
+        result['agent'] = agent_name
         logger.debug(f"{agent_name} score: {result.get('score', 0)}")
-
         return result
 
     def _parse_agent_response(self, api_response: Dict, agent_name: str) -> Dict:
-        """Parse agent response"""
+        """Parse agent response (Deprecated - handled by GeminiClient)"""
+        # GeminiClient가 이미 파싱된 dict를 반환하므로 이 메서드는 사용되지 않을 수 있음
         try:
             content = api_response['result']['message']['content']
 
@@ -366,19 +336,19 @@ JSON:"""
             "is_phishing": False,
             "confidence": 0,
             "techniques": [],
-            "reasoning": "ClovaX API를 사용할 수 없습니다.",
+            "reasoning": "Gemini API를 사용할 수 없습니다.",
             "red_flags": [],
-            "recommendation": "API 키를 설정하세요.",
+            "recommendation": "Gemini API 키를 설정하세요.",
             "agent_scores": {"context": 0, "psychological": 0, "financial": 0}
         }
 
 
 def main():
     """Test multi-agent system"""
-    detector = MultiAgentDetector()
+    detector = MultiAgentPhishingDetector()
 
     if not detector.is_available():
-        print("⚠️ ClovaX API 키가 필요합니다")
+        print("⚠️ Gemini API 키가 필요합니다")
         return
 
     test_text = "안녕하세요, 금융감독원입니다. 고객님 계좌에서 이상 거래가 감지되어 확인이 필요합니다."

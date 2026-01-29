@@ -17,7 +17,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from dotenv import load_dotenv
 load_dotenv()
 
-from src.llm.llm_clients.clovax_client import ClovaXClient
+try:
+    from src.llm.clovax_client import ClovaXClient
+except ImportError:
+    ClovaXClient = None
+
 from src.llm.llm_clients.gemini_client import GeminiClient
 from src.llm.llm_clients.openai_client import OpenAIClient
 from src.llm.llm_clients.deepseek_client import DeepSeekClient
@@ -166,9 +170,10 @@ def main():
     }
 
     # ClovaX는 GATEWAY_KEY 필요
-    clovax = ClovaXClient()
-    if clovax.is_available():
-        clients["ClovaX"] = clovax
+    if ClovaXClient:
+        clovax = ClovaXClient()
+        if clovax.is_available():
+            clients["ClovaX"] = clovax
 
     # 사용 가능한 LLM만 필터
     available_clients = {name: client for name, client in clients.items() if client.is_available()}

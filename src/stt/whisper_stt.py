@@ -8,6 +8,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 import logging
+import librosa
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,7 +74,57 @@ class WhisperSTT:
             **kwargs
         }
 
-        result = self.model.transcribe(str(audio), **options)
+        # Load audio file to numpy array - try multiple loaders for robustness
+        if isinstance(audio, (str, Path)):
+            audio_path = Path(audio)
+            logger.info(f"Loading audio file: {audio_path.name} ({audio_path.suffix})")
+
+            # Strategy: Try soundfile -> librosa -> Whisper direct
+            # This handles WAV, MP3, FLAC, OGG, M4A, WEBM, and more
+            loaded = False
+
+            # Try 1: soundfile (fastest for WAV/FLAC)
+            try:
+                import soundfile as sf
+                logger.debug(f"Attempting soundfile...")
+                audio_data, sample_rate = sf.read(str(audio), dtype='float32')
+
+                # Convert stereo to mono
+                if len(audio_data.shape) > 1:
+                    audio_data = audio_data.mean(axis=1)
+
+                # Resample to 16kHz if needed
+                if sample_rate != 16000:
+                    audio_data = librosa.resample(audio_data, orig_sr=sample_rate, target_sr=16000)
+                    sample_rate = 16000
+
+                logger.info(f"✓ Soundfile: {len(audio_data)} samples at {sample_rate}Hz ({len(audio_data)/sample_rate:.2f}s)")
+                result = self.model.transcribe(audio_data, **options)
+                loaded = True
+
+            except Exception as e1:
+                logger.debug(f"Soundfile failed: {e1}")
+
+            # Try 2: librosa (handles MP3, OGG, etc.)
+            if not loaded:
+                try:
+                    logger.debug(f"Attempting librosa...")
+                    audio_data, sr = librosa.load(str(audio), sr=16000, mono=True)
+                    logger.info(f"✓ Librosa: {len(audio_data)} samples at {sr}Hz ({len(audio_data)/sr:.2f}s)")
+                    result = self.model.transcribe(audio_data, **options)
+                    loaded = True
+
+                except Exception as e2:
+                    logger.debug(f"Librosa failed: {e2}")
+
+            # Try 3: Whisper direct (uses ffmpeg internally)
+            if not loaded:
+                logger.warning(f"All Python loaders failed, trying Whisper direct (requires ffmpeg)")
+                result = self.model.transcribe(str(audio), **options)
+                logger.info(f"✓ Whisper direct transcription successful")
+        else:
+            # Already a numpy array
+            result = self.model.transcribe(audio, **options)
 
         transcribe_time = time.time() - start_time
 

@@ -66,3 +66,9 @@ htmlcov/
 # Benchmark logs
 benchmark*.txt
 *.txt
+
+# FFmpeg binaries (too large for GitHub)
+ffmpeg-master-latest-win64-gpl/
+ffmpeg.zip
+bin/ffmpeg.exe
+bin/ffprobe.exe

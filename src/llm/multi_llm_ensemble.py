@@ -7,7 +7,11 @@ from typing import Dict, List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import statistics
 
-from .llm_clients.clovax_client import ClovaXClient
+try:
+    from .clovax_client import ClovaXClient
+except ImportError:
+    ClovaXClient = None
+
 from .llm_clients.gemini_client import GeminiClient
 from .llm_clients.openai_client import OpenAIClient
 from .llm_clients.deepseek_client import DeepSeekClient
@@ -23,12 +27,14 @@ class MultiLLMEnsemble:
 
     def __init__(self):
         self.clients = {
-            "ClovaX": ClovaXClient(),
             "Gemini": GeminiClient(),
             "GPT": OpenAIClient(),
             "DeepSeek": DeepSeekClient(),
             "Perplexity": PerplexityClient()
         }
+        
+        if ClovaXClient:
+            self.clients["ClovaX"] = ClovaXClient()
 
         # 사용 가능한 LLM 확인
         self.available_llms = {

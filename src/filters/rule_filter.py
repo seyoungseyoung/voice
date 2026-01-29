@@ -60,7 +60,12 @@ class RuleBasedFilter:
         "시험", "검사", "역량", "서류",
 
         # 의료
-        "진료", "상담", "병원", "의사", "환자", "프라이버시"
+        "진료", "상담", "병원", "의사", "환자", "프라이버시",
+
+        # 부동산/법률 (정상 거래)
+        "부동산", "공인중개사", "중개사무소", "법무사", "등기",
+        "계약서", "잔금", "집주인", "매도인", "매수인",
+        "키 불출", "등기 이전", "소유권 이전", "전입신고"
     ]
 
     # 공식 도메인 패턴 (실제 정부/공공기관 도메인)
@@ -195,12 +200,13 @@ class RuleBasedFilter:
 
         # === Rule 3: 긴급성 + 금융 조합 (전형적 피싱) ===
         # 긴급성 키워드 + 범죄 키워드가 많으면 높은 위험
-        if urgency_count >= 2 and crime_count >= 3:
+        # 단, 정상 키워드가 많으면 (부동산, 법률 거래 등) 상향하지 않음
+        if urgency_count >= 2 and crime_count >= 3 and legit_count <= 2:
             if llm_score < 80:
                 self.stats["upgraded"] += 1
                 logger.warning(
                     f"Rule Filter: 긴급성+금융 패턴 감지 "
-                    f"(긴급:{urgency_count}, 범죄:{crime_count})"
+                    f"(긴급:{urgency_count}, 범죄:{crime_count}, 정상:{legit_count})"
                 )
                 return {
                     "final_score": 85,

@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from dotenv import load_dotenv
 load_dotenv()
 
-from src.llm.llm_clients.clovax_client import ClovaXClient
+from src.llm.clovax_client import ClovaXClient
 
 client = ClovaXClient()
 
