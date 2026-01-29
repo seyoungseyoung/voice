@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+
+# 개발 환경
+.vscode/
+.idea/
+.claude/
+
+# 데이터 파일
+*.wav
+*.mp3
+*.webm
+data/training_dataset.json
+
+# 로그
+*.log
+logs/
+
+# 캐시
+.pytest_cache/
+.mypy_cache/
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 임시 파일
+tmp/
+temp/
+*.tmp
+
+# ffmpeg (도커 이미지에서 apt로 설치)
+ffmpeg-master-latest-win64-gpl/
+ffmpeg.zip
+bin/
+
+# 테스트 파일
+test_*.py
+nul
+
+# TODO
+TODO.md

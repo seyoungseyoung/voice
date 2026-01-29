@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  sentinel-voice:
+    build: .
+    container_name: sentinel-voice
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - CLOVAX_API_KEY=${CLOVAX_API_KEY}
+      - CLOVAX_API_KEY_PRIMARY=${CLOVAX_API_KEY_PRIMARY}
+      - CLOVAX_REQUEST_ID=${CLOVAX_REQUEST_ID}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+
+networks:
+  sentinel-network:
+    driver: bridge

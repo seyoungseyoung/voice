@@ -41,6 +41,42 @@ python scripts/run_server.py
 
 **웹 브라우저에서 접속**: http://localhost:8000
 
+### 🐳 Docker로 실행 (권장)
+
+```bash
+# 1. .env 파일 생성 (API 키 설정)
+cp .env.example .env
+# .env 파일에 API 키 입력
+
+# 2. Docker Compose로 실행
+docker-compose up -d
+
+# 3. 로그 확인
+docker-compose logs -f
+
+# 4. 중지
+docker-compose down
+```
+
+**또는 Docker만 사용:**
+
+```bash
+# 이미지 빌드
+docker build -t sentinel-voice .
+
+# 컨테이너 실행
+docker run -d -p 8000:8000 \
+  -e GEMINI_API_KEY=your_key_here \
+  --name sentinel-voice \
+  sentinel-voice
+
+# 로그 확인
+docker logs -f sentinel-voice
+
+# 중지
+docker stop sentinel-voice
+```
+
 ### 사용 방법
 
 1. **"음성 파일 분석"** 탭 선택
