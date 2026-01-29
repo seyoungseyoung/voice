@@ -7,6 +7,14 @@ from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
+# 2차 LLM 검증을 위해 Gemini Client import
+try:
+    from src.llm.llm_clients.gemini_client import GeminiClient
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    logger.warning("GeminiClient not available - 2nd stage verification disabled")
+
 
 class RuleBasedFilter:
     """
@@ -90,13 +98,43 @@ class RuleBasedFilter:
         "시간 내", "마감", "기한"
     ]
 
+    # 금전 수령 키워드 (사용자가 돈을 받는 상황 - 정상)
+    MONEY_RECEIVING_KEYWORDS = [
+        "송금해드릴게요", "송금해 드릴게요", "송금 해드릴게요",
+        "입금해드릴게요", "입금해 드릴게요", "입금 해드릴게요",
+        "지급", "환급", "보상금", "지원금", "배상금"
+    ]
+
+    # 사용자 항의 키워드 (사용자가 협박/항의하는 상황 - 정상)
+    USER_COMPLAINT_KEYWORDS = [
+        "환불하세요", "환불 해주세요", "환불해 주세요",
+        "신고하겠", "고소하겠", "소비자원", "공정위",
+        "항의합니다", "항의드립니다", "책임지세요"
+    ]
+
     def __init__(self):
         self.stats = {
             "total_filtered": 0,
             "downgraded": 0,
             "upgraded": 0,
-            "passed": 0
+            "passed": 0,
+            "second_stage_checks": 0,
+            "second_stage_downgrades": 0
         }
+        # 금액 추출용 정규식
+        import re
+        self.amount_pattern = re.compile(r'([\d,]+)\s*만\s*원')
+
+        # 2차 LLM 검증용 Gemini Client 초기화
+        if GEMINI_AVAILABLE:
+            try:
+                self.second_stage_llm = GeminiClient()
+                logger.info("✓ 2nd stage LLM verification enabled (Gemini Flash)")
+            except Exception as e:
+                self.second_stage_llm = None
+                logger.warning(f"Failed to initialize 2nd stage LLM: {e}")
+        else:
+            self.second_stage_llm = None
 
     def filter(
         self,
@@ -222,6 +260,32 @@ class RuleBasedFilter:
                     "detected_techniques": detected_crime[:10]
                 }
 
+        # === Rule 4: 2차 LLM 검증 (애매한 케이스) ===
+        # 60-95 점수대 + 2차 LLM 사용 가능하면 재검증
+        if 60 <= llm_score <= 95 and self.second_stage_llm:
+            second_check = self._second_stage_verification(text, llm_score, llm_reasoning)
+            if second_check["is_safe"]:
+                self.stats["downgraded"] += 1
+                self.stats["second_stage_downgrades"] += 1
+                logger.info(
+                    f"Rule Filter: 2차 LLM 검증 완료 - 정상 판정 "
+                    f"(원점수:{llm_score}, 2차판정:{second_check['reasoning']})"
+                )
+                return {
+                    "final_score": 20,
+                    "risk_level": "안전",
+                    "reason": f"2차 LLM 검증: {second_check['reasoning']}",
+                    "filter_applied": True,
+                    "original_score": llm_score,
+                    "second_stage_result": second_check,
+                    "keyword_analysis": {
+                        "crime": crime_count,
+                        "legit": legit_count,
+                        "urgency": urgency_count
+                    },
+                    "detected_techniques": []
+                }
+
         # === Rule 통과: 원래 LLM 판정 유지 ===
         self.stats["passed"] += 1
         return {
@@ -237,6 +301,126 @@ class RuleBasedFilter:
             },
             "detected_techniques": detected_crime[:10]  # 최대 10개만 반환
         }
+
+    def _second_stage_verification(
+        self,
+        text: str,
+        first_score: float,
+        first_reasoning: str
+    ) -> Dict:
+        """
+        2차 LLM 검증: 애매한 케이스를 재분석
+
+        Args:
+            text: 통화 내용
+            first_score: 1차 LLM 점수
+            first_reasoning: 1차 LLM 판단 이유
+
+        Returns:
+            {
+                "is_safe": bool,  # True면 정상, False면 위험 유지
+                "reasoning": str   # 2차 판정 이유
+            }
+        """
+        self.stats["second_stage_checks"] += 1
+
+        if not self.second_stage_llm:
+            return {"is_safe": False, "reasoning": "2nd stage LLM not available"}
+
+        # 2차 검증용 프롬프트 (Chain-of-Thought + 함정 패턴 탐지)
+        # 주의: analyze_phishing()이 자동으로 "통화 내용: {text}" 추가하므로 여기선 제외
+        verification_prompt = f"""당신은 보이스피싱 2차 검증 전문가입니다.
+
+**배경**:
+- 1차 AI 판정: {first_score}점 (피싱 의심)
+- 1차 판정 이유: {first_reasoning}
+
+**재검증 임무**: 3단계 체계적 분석을 수행하세요.
+
+---
+
+## 📋 Step 1: 예외 상황 매칭
+
+다음 3가지 **예외 상황** 중 하나에 해당하는지 확인:
+
+### ✅ 예외 1: 사용자가 돈을 받는 상황
+**정상 신호**:
+- "송금해드릴게요", "입금해드릴", "지급", "환급", "보상금"
+- 개인정보(주민번호, 계좌) 요구 → 세금/송금 처리용이므로 정상
+- **예시**: 보험금 지급 + 주민번호 요구 (세금 처리) ✅
+
+**❌ 함정 패턴 (피싱)**:
+- "환불/환급" **+ 앱 설치/원격제어/URL 접속 요구**
+- **예시**: "쿠팡 환불해드릴게요 + 팀뷰어 설치" → 피싱 ❌
+- **예시**: "사기 피해금 찾았습니다 + cyber-police.me 접속" → 피싱 ❌
+- **이유**: 정상 환급은 **계좌번호만** 요구, 앱/URL/원격제어 **불필요**
+
+### ✅ 예외 2: 사용자가 항의/협박하는 상황
+**정상 신호**:
+- "환불해", "환불하세요", "신고하겠", "고소하겠", "책임져", "소비자원"
+- 사용자가 **피해자가 아닌 항의자** 역할
+- **예시**: "500% 수익 난다며! 당장 환불해줘" ✅
+
+### ✅ 예외 3: 소액(10만원 이하) 긴급 요청
+**정상 신호**:
+- "10만원", "5만원", "차비", "급해" + 가족/지인
+- 소액 급전은 정상 가능성 높음 (친구 계좌여도 정상)
+- **예시**: "엄마 지갑 잃어버렸어 10만원만" ✅
+
+---
+
+## 🔍 Step 2: 함정 패턴 체크
+
+예외 1에 해당하더라도 다음 **피싱 신호**가 있으면 피싱:
+- ⚠️ 앱 설치 요구 (팀뷰어, 원격, APK, 보안관 등)
+- ⚠️ URL 접속 요구 (.com, .net, bit.ly, 단축 URL)
+- ⚠️ 원격 제어 요구 (접속번호, 화면 공유, 제어 권한)
+- ⚠️ 가짜 공공기관 사칭 (URL이 .go.kr 아님)
+
+---
+
+## ✅ Step 3: 최종 판단
+
+**답변 형식 (JSON)**:
+{{
+  "step1_exception_match": "예외 1/2/3 중 해당하는가? (예외번호 또는 '해당없음')",
+  "step2_trap_detected": "함정 패턴 발견? (앱/URL/원격제어 요구 여부: yes/no)",
+  "step3_final_decision": "정상 또는 피싱",
+  "score": 0-100,
+  "is_phishing": true 또는 false,
+  "reasoning": "Step 1~3 종합 판단 결과 (2-3문장)"
+}}
+
+**핵심 로직**:
+- 예외 해당 ✅ + 함정 없음 ✅ → 정상 (score: 0-30, is_phishing: false)
+- 예외 해당 ✅ + 함정 있음 ❌ → **피싱** (score: {first_score}, is_phishing: true)
+- 예외 해당 없음 ❌ → 피싱 (score: {first_score}, is_phishing: true)"""
+
+        try:
+            # Gemini Flash로 빠르게 2차 검증
+            result = self.second_stage_llm.analyze_phishing(text, verification_prompt)
+
+            # Gemini 응답: {"score": int, "is_phishing": bool, "reasoning": str}
+            is_phishing = result.get("is_phishing", True)  # 기본값: 위험
+            second_score = result.get("score", first_score)
+            reasoning_text = result.get("reasoning", "2차 검증 완료")
+
+            # is_phishing: false면 안전 (is_safe: true)
+            is_safe = not is_phishing
+
+            # 추가 검증: score가 낮으면 (0-30) 안전으로 판단
+            if second_score <= 30:
+                is_safe = True
+
+            return {
+                "is_safe": is_safe,
+                "reasoning": reasoning_text,
+                "second_score": second_score
+            }
+
+        except Exception as e:
+            logger.error(f"2nd stage verification failed: {e}")
+            return {"is_safe": False, "reasoning": f"Error: {str(e)}"}
 
     def get_statistics(self) -> Dict:
         """필터 통계 반환"""
@@ -258,5 +442,7 @@ class RuleBasedFilter:
             "total_filtered": 0,
             "downgraded": 0,
             "upgraded": 0,
-            "passed": 0
+            "passed": 0,
+            "second_stage_checks": 0,
+            "second_stage_downgrades": 0
         }
