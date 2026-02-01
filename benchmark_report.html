@@ -5,271 +5,194 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini 보이스피싱 탐지 벤치마크 보고서</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+            font-family: 'Malgun Gothic', Arial, sans-serif;
             line-height: 1.6;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
+            padding: 20px;
+            background: #fff;
         }
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px;
-            text-align: center;
+        h1 {
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
         }
 
-        .header h1 {
-            font-size: 2.5em;
+        .subtitle {
+            color: #666;
             margin-bottom: 10px;
         }
 
-        .header .subtitle {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-
         .summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            display: flex;
             gap: 20px;
-            padding: 40px;
-            background: #f8f9fa;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
         }
 
         .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
+            flex: 1;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
         }
 
         .stat-card .number {
-            font-size: 2.5em;
+            font-size: 2em;
             font-weight: bold;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #333;
         }
 
         .stat-card .label {
             color: #666;
-            margin-top: 10px;
-            font-size: 0.95em;
-        }
-
-        .content {
-            padding: 40px;
+            font-size: 0.9em;
         }
 
         .category {
-            margin-bottom: 50px;
+            margin: 40px 0;
         }
 
         .category-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #333;
             color: white;
-            padding: 20px 30px;
-            border-radius: 10px;
+            padding: 15px;
             margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
 
         .category-title {
-            font-size: 1.5em;
+            font-size: 1.3em;
             font-weight: bold;
+            display: inline;
         }
 
         .category-stats {
-            font-size: 1.1em;
+            float: right;
         }
 
         .test-case {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 25px;
-            border-left: 5px solid #667eea;
-            transition: all 0.3s;
-        }
-
-        .test-case:hover {
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            transform: translateX(5px);
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            page-break-inside: avoid;
         }
 
         .test-case.phishing {
-            border-left-color: #dc3545;
+            border-left: 4px solid #d32f2f;
         }
 
         .test-case.legitimate {
-            border-left-color: #28a745;
+            border-left: 4px solid #388e3c;
         }
 
         .case-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
         }
 
         .case-id {
-            font-size: 1.3em;
             font-weight: bold;
-            color: #667eea;
-        }
-
-        .case-name {
-            font-size: 1.1em;
             color: #333;
-            flex: 1;
-            margin-left: 15px;
         }
 
         .badge {
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: bold;
+            display: inline-block;
+            padding: 4px 10px;
+            margin-left: 10px;
+            font-size: 0.85em;
+            border: 1px solid #ccc;
         }
 
         .badge.pass {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge.fail {
-            background: #f8d7da;
-            color: #721c24;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #81c784;
         }
 
         .badge.phishing {
-            background: #f8d7da;
-            color: #721c24;
+            background: #ffebee;
+            color: #c62828;
+            border-color: #e57373;
         }
 
         .badge.legitimate {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .input-section {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-
-        .section-title {
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .input-text {
-            color: #333;
-            line-height: 1.8;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
-
-        .analysis-section {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-
-        .score-display {
-            display: flex;
-            gap: 20px;
-            margin: 15px 0;
-            flex-wrap: wrap;
-        }
-
-        .score-box {
-            background: #f8f9fa;
-            padding: 15px 25px;
-            border-radius: 10px;
-            text-align: center;
-            flex: 1;
-            min-width: 120px;
-        }
-
-        .score-box .score {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .score-box .score.high {
-            color: #dc3545;
-        }
-
-        .score-box .score.low {
-            color: #28a745;
-        }
-
-        .score-box .label {
-            color: #666;
-            font-size: 0.9em;
-            margin-top: 5px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #81c784;
         }
 
         .filter-badge {
             background: #fff3cd;
             color: #856404;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.85em;
+            padding: 4px 10px;
             margin-left: 10px;
+            font-size: 0.85em;
+            border: 1px solid #ffc107;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .input-text {
+            padding: 15px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            line-height: 1.8;
+        }
+
+        .score-display {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .score-box {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        .score-box .score {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .score-box .score.high {
+            color: #d32f2f;
+        }
+
+        .score-box .score.low {
+            color: #388e3c;
+        }
+
+        .score-box .label {
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        .reasoning {
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 3px solid #666;
+            line-height: 1.8;
         }
 
         .footer {
-            background: #2c3e50;
-            color: white;
-            text-align: center;
-            padding: 30px;
             margin-top: 40px;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #ddd;
+            color: #666;
         }
 
         @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
-
-            .container {
-                box-shadow: none;
-            }
-
             .test-case {
                 page-break-inside: avoid;
             }
@@ -277,12 +200,9 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔬 Gemini 보이스피싱 탐지 벤치마크 보고서</h1>
-            <div class="subtitle">Gemini 2.5 Flash + Rule Filter 통합 시스템</div>
-            <div class="subtitle" style="margin-top: 10px; font-size: 1em;">테스트 일시: 2026년 02월 01일</div>
-        </div>
+    <h1>Gemini 보이스피싱 탐지 벤치마크 보고서</h1>
+    <div class="subtitle">Gemini 2.5 Flash + Rule Filter 통합 시스템</div>
+    <div class="subtitle">테스트 일시: 2026년 02월 01일</div>
 
         <div class="summary">
             <div class="stat-card">
@@ -338,6 +258,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">서울지검을 사칭하며 대포통장 신고를 언급하여 심리적 압박과 위협을 가하고, 모텔로의 장소 이동 및 앱 설치를 요구함.</div>
                     </div>
                 </div>
 
@@ -368,6 +291,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">중앙지방검찰청을 사칭하며 계좌 동결을 언급하여 심리적 압박을 가하고, 모텔 등 독립된 장소로 이동하여 원격 제어 앱(팀뷰어) 설치를 요구함.</div>
                     </div>
                 </div>
 
@@ -398,6 +324,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">검사를 사칭하며 독립된 공간(숙박업소)으로 이동을 요구하고, 비대면 조사를 명목으로 보안 앱 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -428,6 +357,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">공공기관 사칭으로 추정되는 화자가 '피해자 소명'이라는 심리적 압박을 가하며, 주변 잡음을 핑계로 스터디룸이나 비즈니스 호텔과 같은 독립된 공간으로 이동할 것을 요구함.</div>
                     </div>
                 </div>
 
@@ -458,6 +390,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">한국인터넷진흥원(KISA)을 사칭하며 폰 해킹을 언급하며 심리적 압박을 가하고, 안전한 장소로 이동을 요구한 뒤 '인증 툴' 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -488,6 +423,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">금융감독원을 사칭하며 자금 유출을 언급하며 심리적 압박을 가하고, 원격으로 '금융 보안 모듈' 재설정을 요구하여 앱 설치/원격 제어를 유도함.</div>
                     </div>
                 </div>
 
@@ -518,6 +456,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">가족 사고를 빙자하여 심리적 압박을 가하고, 조용한 방으로 이동하게 한 뒤 '보험사 전용 녹취 앱' 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -548,6 +489,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">기업을 사칭하며 비정상적인 면접 절차(독립된 공간 이동, 시험 감독 프로그램 설치)를 요구함.</div>
                     </div>
                 </div>
 
@@ -578,6 +522,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">카드사 FDS팀을 사칭하며 악성코드 감염을 빌미로 심리적 압박을 가하고, '백신 업데이트'라는 명목으로 앱 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -608,6 +555,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">금융기관을 사칭하며 딥보이스 범죄를 언급하며 심리적 압박을 가하고, '생체 파형 등록'이라는 비정상적인 절차를 요구하며 독립된 장소로의 이동을 유도함.</div>
                     </div>
                 </div>
 
@@ -646,6 +596,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">정신건강의학과에서 예약된 비대면 진료를 안내하는 통화입니다. 민감한 개인 정보 보호를 위해 조용한 공간으로 이동 요청 및 공식 화상 진료 플랫폼(닥터나우/줌) 링크 접속 안내는 정상적인 의료 서비스 절차입니다. 금전 요구, 금융 정보 요구, 악성 앱 설치 유도 등의 피싱 징후가 없습니다.</div>
                     </div>
                 </div>
 
@@ -676,6 +629,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">[필터 적용] 원격 제어를 요청하고 있어 LLM이 90점으로 판정했으나, 사용자가 먼저 문의한 와이파이 문제 해결을 위한 정상 서비스로 확인되어 25점으로 하향 조정됨.</div>
                     </div>
                 </div>
 
@@ -706,6 +662,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">기업 인사팀에서 채용 관련 안내를 하는 정상적인 통화로 판단됩니다. 시험 프로그램 설치를 요구하지만, 공식 채용 홈페이지 '마이페이지'를 통해 다운로드하도록 안내하여 피싱으로 보기 어렵습니다. 금전 요구, 개인 금융 정보 요구, 비정상적인 장소 이동 요구 등 피싱 징후가 없습니다.</div>
                     </div>
                 </div>
 
@@ -744,6 +703,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">대법원 형사 사법 포털을 사칭하며 가짜 URL(scourt-law.com) 접속을 유도하고, 악성 앱으로 의심되는 '보안 뷰어' 설치를 요구함.</div>
                     </div>
                 </div>
 
@@ -774,6 +736,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">서울중앙지검을 사칭하며 가짜 URL(spo-invest.net) 접속을 유도하고, '수사기관용 본인확인 앱' 설치를 요구함.</div>
                     </div>
                 </div>
 
@@ -804,6 +769,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">금융감독원을 사칭하며 계좌 동결로 심리적 압박을 가하고, 가짜 URL(fss-secure.co.kr) 접속 및 보안 프로그램 업데이트를 유도함.</div>
                     </div>
                 </div>
 
@@ -834,6 +802,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">국세청을 사칭하며 미환급 세액을 미끼로 가짜 URL(hometax-refund.info) 접속을 유도하고, 환급 신청서 작성을 요구함.</div>
                     </div>
                 </div>
 
@@ -864,6 +835,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">건강검진센터를 사칭하며 이상 소견으로 불안감을 조성하고, 가짜 의료 포털(health-check.kr) 접속 및 '의료 정보 암호화 모듈' 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -894,6 +868,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">한국장학재단을 사칭하며 장학금 환수로 심리적 압박을 가하고, 가짜 URL(kosaf-support.com) 접속 및 앱 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -924,6 +901,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">정부 지원 대환대출을 사칭하며 가짜 KB국민은행 URL(kb-loancenter.net) 접속 및 앱 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -954,6 +934,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">CJ대한통운을 사칭한 스미싱으로, 가짜 URL(cj-logistics-help.com) 접속 및 인증 앱 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -984,6 +967,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">업비트 보안팀을 사칭하며 출금 제한으로 불안감을 조성하고, 가짜 URL(upbit-security.org)을 통해 OTP 재설정 앱 설치를 유도함.</div>
                     </div>
                 </div>
 
@@ -1014,6 +1000,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">사이버수사대를 사칭하며 가짜 경찰청 사이버 안전국 URL(cyber-police.me)로 접속을 유도하여 피해 구제 신청서 작성을 요구함.</div>
                     </div>
                 </div>
 
@@ -1052,6 +1041,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">지인을 사칭하여 'AI 매매 프로그램'과 '비공개 거래소'를 통해 과도한 수익률(20% 수익, 100배 레버리지)을 미끼로 100만원의 초기 투자를 유도하는 투자 사기 유형임.</div>
                     </div>
                 </div>
 
@@ -1082,6 +1074,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">자녀를 사칭하여 긴급한 사고 상황을 조작하고, 경찰 개입을 막는다는 명목으로 고액의 합의금(3천만원)을 즉시 송금하도록 요구하는 가족/지인 사칭 피싱 유형에 해당함.</div>
                     </div>
                 </div>
 
@@ -1112,6 +1107,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">부고를 사칭하며 단축 URL(bit.ly)을 통해 가짜 웹사이트 접속을 유도하는 전형적인 스미싱 패턴입니다.</div>
                     </div>
                 </div>
 
@@ -1142,6 +1140,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">법무사 사무실을 사칭하며 개인 계좌를 통한 자금 이체를 요구하고, 코인 ATM기를 통한 송금을 유도하는 대포통장 범죄 유형임.</div>
                     </div>
                 </div>
 
@@ -1180,6 +1181,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">쿠팡을 사칭하며 소액(4,990원) 환불을 미끼로 원격 제어 앱(팀뷰어) 설치 및 접속 번호 제공을 요구하는 전형적인 원격 제어 피싱임.</div>
                     </div>
                 </div>
 
@@ -1210,6 +1214,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">카드사 FDS팀을 사칭하며 이상 거래를 빌미로 심리적 압박을 가하고, 문자 링크를 통한 '명의도용 방지 보안관' 앱 설치를 유도하는 피싱임.</div>
                     </div>
                 </div>
 
@@ -1240,6 +1247,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">서민금융진흥원을 사칭하며 정부 지원 대환대출을 빙자하여 가상계좌로 선입금을 요구하는 전형적인 대출 사기 피싱임.</div>
                     </div>
                 </div>
 
@@ -1270,6 +1280,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">병원 응급실을 사칭하며 가족 응급 상황으로 극도의 심리적 압박을 가하고, 고액(450만원)의 수술비 선납을 요구하는 긴급 상황 피싱임.</div>
                     </div>
                 </div>
 
@@ -1300,6 +1313,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">잘못 걸린 전화를 가장하여 자연스럽게 대화를 유도하고, 카톡 친구를 요청하는 로맨스 스캠 초기 접근 단계로 판단됨.</div>
                     </div>
                 </div>
 
@@ -1330,6 +1346,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">헤드헌터를 사칭하며 비공개 채용을 빙자하여 주민등록증, 급여 통장 내역서, 가족 관계 증명서 등 민감한 개인정보를 요구하고, URL을 통한 본인 인증을 유도하는 개인정보 탈취 피싱임.</div>
                     </div>
                 </div>
 
@@ -1360,6 +1379,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">[필터 적용] LLM이 90점으로 판정했으나, '사용자가 돈을 받는 상황'(보험금 지급)에 해당하여 예외 규칙이 적용되어 20점으로 하향 조정됨. 정상적인 보험금 지급 절차로 판단됨.</div>
                     </div>
                 </div>
 
@@ -1390,6 +1412,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">집주인이 월세 연체를 이유로 독촉하고 법적 조치를 경고하는 정상적인(하지만 살벌한) 통화입니다. 피싱 수법의 특징인 공공기관 사칭, 앱 설치 유도, 가짜 URL 접속 요구 등이 없습니다.</div>
                     </div>
                 </div>
 
@@ -1420,6 +1445,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">경찰서에서 보호 중인 가족을 인계하기 위한 정상적인 연락입니다. 금전 요구, 앱 설치, 원격 제어 요구 등 피싱 징후가 전혀 없습니다.</div>
                     </div>
                 </div>
 
@@ -1450,6 +1478,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">중고거래 구매자가 사기를 우려하여 과도한 인증을 요구하는 정상적인(하지만 예민한) 대화입니다. 오히려 피해를 입지 않으려고 조심하는 상황으로, 피싱 수법과는 반대입니다.</div>
                     </div>
                 </div>
 
@@ -1464,7 +1495,7 @@
 
                     <div class="input-section">
                         <div class="section-title">📝 입력 문장 전문</div>
-                        <div class="input-text">엄마! 나 지금 큰일 났어. 나 지금 홍대인데 지갑을 잃어버렸어. 집에 갈 차비도 없고 카드도 다 정지시켜서 아무것도 못 해. 어, 폰은 있는데 배터리 3%야. 끊어지면 안 돼. 엄마, 나 지금 친구 계좌로 10만 원만 빨리 보내줘. 내가 집 가서 바로 줄게. 어, '박민수'고 카카오뱅크야. 내가 문자로 찍어보낼게. 지금 당장 좀 넣어줘. 나 택시 타야 돼.</div>
+                        <div class="input-text">엄마! 나 지금 큰일 났어. 나 지금 홍대인데 지갑을 잃어버렸어. 집에 갈 차비도 없고 카드도 다 정지시켜서 아무것도 못 해. 어, 폰은 있는데 배터리 3%야. 끊어지면 안 돼. 엄마, 나 지금 친구 계좌로 10만 원만 빨리 보내줘. 내가 집 가서 바로 줄게. 급해 진짜. 어, '박민수'고 카카오뱅크야. 내가 문자로 찍어보낼게. 지금 당장 좀 넣어줘. 나 택시 타야 돼.</div>
                     </div>
 
                     <div class="analysis-section">
@@ -1480,6 +1511,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">[필터 적용] LLM이 95점으로 판정했으나, '소액(10만원 이하) 긴급 요청'에 해당하여 예외 규칙이 적용되어 20점으로 하향 조정됨. 가족 간 긴급 상황에서 소액을 요청하는 정상적인 통화로 판단됨.</div>
                     </div>
                 </div>
 
@@ -1510,6 +1544,9 @@
                                 <div class="label">최종 점수</div>
                             </div>
                         </div>
+
+                        <div class="section-title" style="margin-top: 20px;">💬 Gemini 판정 이유</div>
+                        <div class="reasoning">[필터 적용] LLM이 90점으로 판정했으나, '사용자가 항의/협박하는 상황'에 해당하여 예외 규칙이 적용되어 20점으로 하향 조정됨. 투자 사기 피해자가 업체에 항의하며 환불을 요구하는 정상적인 통화로 판단됨.</div>
                     </div>
                 </div>
 
