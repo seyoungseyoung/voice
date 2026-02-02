@@ -91,6 +91,38 @@ class RuleBasedFilter:
         "bit.ly", "tinyurl", "short"
     ]
 
+    # Web3/암호화폐 스캠 키워드
+    WEB3_SCAM_KEYWORDS = {
+        "critical": [
+            "지갑 연결", "wallet connect", "트랜잭션 서명", "transaction sign",
+            "시드 구문", "seed phrase", "프라이빗 키", "private key",
+            "브릿지 사이트", "스왑 사이트", "클레임 사이트", "bridge site"
+        ],
+        "warning": [
+            "에어드랍", "airdrop", "거버넌스 토큰", "governance token",
+            "스냅샷", "snapshot", "가스비 지원", "gas fee",
+            "클레임", "claim", "민팅", "minting", "재단 운영팀"
+        ]
+    }
+
+    # 채권 추심 키워드 (불법 추심이지만 피싱은 아님)
+    DEBT_COLLECTION_KEYWORDS = [
+        "이자 입금", "이자", "원금 상환", "원금", "대출금", "채무", "빌린",
+        "받은 돈", "연체", "상환일", "변제", "입금 안", "입금해"
+    ]
+
+    # 내부 조직 업무 지시 키워드 (CEO Fraud 경계 케이스)
+    INTERNAL_WORK_KEYWORDS = {
+        "titles": ["대리", "과장", "부장", "팀장", "실장", "이사", "전무"],
+        "context": ["거래처", "법인 계좌", "법인통장", "결재", "보고", "미팅", "회의", "프로젝트"]
+    }
+
+    # 중고거래 사기 키워드 (전화 사기지만 보이스피싱은 아님)
+    COMMERCE_FRAUD_KEYWORDS = [
+        "중고나라", "중고거래", "당근", "번개장터", "중고", "직거래",
+        "안전결제", "택배", "반값택배", "일반택배", "선입금"
+    ]
+
     # 긴급/압박 키워드 (피싱에서 자주 사용)
     URGENCY_KEYWORDS = [
         "지금 당장", "즉시", "급히", "바로", "빨리",
@@ -136,6 +168,79 @@ class RuleBasedFilter:
         else:
             self.second_stage_llm = None
 
+    def detect_web3_scam(self, text: str) -> Optional[str]:
+        """Web3/암호화폐 스캠 패턴 감지"""
+        text_lower = text.lower()
+
+        critical_count = sum(1 for kw in self.WEB3_SCAM_KEYWORDS["critical"] if kw in text_lower)
+        warning_count = sum(1 for kw in self.WEB3_SCAM_KEYWORDS["warning"] if kw in text_lower)
+
+        if critical_count >= 2:
+            return "CRITICAL_SCAM"  # 점수 하향 금지
+        if critical_count >= 1 and warning_count >= 2:
+            return "HIGH_RISK"  # 최소 70점 유지
+        return None
+
+    def detect_debt_collection(self, text: str) -> bool:
+        """채권 추심 패턴 감지 (불법 추심이지만 피싱 아님)"""
+        text_lower = text.lower()
+        debt_count = sum(1 for kw in self.DEBT_COLLECTION_KEYWORDS if kw in text_lower)
+
+        # 채권 추심 키워드 2개 이상 + 공공기관 사칭 없음
+        if debt_count >= 2:
+            impersonation_keywords = ["검찰", "경찰", "금감원", "국세청", "금융감독원"]
+            has_impersonation = any(kw in text_lower for kw in impersonation_keywords)
+            return not has_impersonation
+        return False
+
+    def detect_internal_instruction(self, text: str) -> bool:
+        """내부 조직 업무 지시 패턴 감지 (CEO Fraud 경계, 중간 위험도)"""
+        text_lower = text.lower()
+
+        # 조직 호칭 존재
+        has_title = any(kw in text_lower for kw in self.INTERNAL_WORK_KEYWORDS["titles"])
+        # 업무 맥락 존재
+        has_context = any(kw in text_lower for kw in self.INTERNAL_WORK_KEYWORDS["context"])
+
+        # 공공기관/금융기관 사칭 없음
+        impersonation_keywords = ["검찰", "경찰", "금감원", "국세청", "금융감독원", "은행", "카드사"]
+        has_impersonation = any(kw in text_lower for kw in impersonation_keywords)
+
+        # CEO Fraud 명백한 신호 체크
+        ceo_fraud_signals = [
+            "개인 계좌", "개인통장", "대표님 개인", "사장님 개인",
+            "법인 계좌에서", "법인통장에서"
+        ]
+        has_ceo_fraud_signal = any(signal in text_lower for signal in ceo_fraud_signals)
+
+        # 법인→개인 송금은 CEO Fraud이므로 내부 업무로 격하하지 않음
+        if has_ceo_fraud_signal and ("개인" in text_lower):
+            return False
+
+        # 조직 호칭 + 업무 맥락 + 사칭 없음 = 내부 업무 지시
+        return has_title and has_context and not has_impersonation
+
+    def detect_commerce_fraud(self, text: str) -> bool:
+        """중고거래 사기 패턴 감지 (전화 사기지만 피싱은 아님)"""
+        text_lower = text.lower()
+        commerce_count = sum(1 for kw in self.COMMERCE_FRAUD_KEYWORDS if kw in text_lower)
+
+        # 중고거래 키워드 2개 이상 = 중고거래 사기
+        return commerce_count >= 2
+
+    def _get_risk_level(self, score: float) -> str:
+        """점수를 위험도로 변환"""
+        if score >= 85:
+            return "고위험 (차단 권장)"
+        elif score >= 70:
+            return "중위험 (경고)"
+        elif score >= 50:
+            return "낮은 위험 (주의)"
+        elif score >= 30:
+            return "매우 낮음 (정상 가능성)"
+        else:
+            return "안전"
+
     def filter(
         self,
         text: str,
@@ -159,6 +264,51 @@ class RuleBasedFilter:
             }
         """
         self.stats["total_filtered"] += 1
+
+        # Web3 스캠 체크 (최우선)
+        web3_risk = self.detect_web3_scam(text)
+        if web3_risk == "CRITICAL_SCAM":
+            # 필터 무시, LLM 점수 유지 (최소 85점 보장)
+            final_score = max(85, llm_score)
+            return {
+                "final_score": final_score,
+                "risk_level": self._get_risk_level(final_score),
+                "reason": "Web3 지갑/트랜잭션 서명 요구 → 명백한 암호화폐 스캠",
+                "filter_applied": True
+            }
+
+        # 채권 추심 체크
+        if self.detect_debt_collection(text):
+            # 채권 추심은 정상으로 격하 (최대 30점)
+            final_score = min(30, llm_score)
+            return {
+                "final_score": final_score,
+                "risk_level": self._get_risk_level(final_score),
+                "reason": "실제 채무 관계 추심으로 판단 (공공기관 사칭 없음, 불법 추심일 수 있으나 피싱 아님)",
+                "filter_applied": True
+            }
+
+        # 내부 업무 지시 체크 (CEO Fraud 경계 케이스)
+        if self.detect_internal_instruction(text) and 70 <= llm_score <= 95:
+            # 내부 업무 지시는 중간 위험도로 조정 (50점)
+            final_score = 50
+            return {
+                "final_score": final_score,
+                "risk_level": self._get_risk_level(final_score),
+                "reason": "내부 조직 업무 지시 패턴 감지 (CEO Fraud 가능성 있으나 정상 업무일 수도 있음, 중간 위험도)",
+                "filter_applied": True
+            }
+
+        # 중고거래 사기 체크
+        if self.detect_commerce_fraud(text):
+            # 중고거래 사기는 중간 위험도로 조정 (50점)
+            final_score = 50
+            return {
+                "final_score": final_score,
+                "risk_level": self._get_risk_level(final_score),
+                "reason": "중고거래 사기 패턴 감지 (전화 사기지만 보이스피싱은 아님, 중간 위험도)",
+                "filter_applied": True
+            }
 
         # 텍스트를 소문자로 변환 (대소문자 무시)
         text_lower = text.lower()

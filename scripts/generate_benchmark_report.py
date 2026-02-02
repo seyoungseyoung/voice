@@ -1,9 +1,11 @@
 """
-현재 Gemini Detector 프롬프트로 27개 케이스 테스트
+48개 케이스 벤치마크 결과를 상세 HTML 보고서로 생성 (엣지 케이스 포함)
 """
 import sys
 import os
 import io
+import json
+import datetime
 
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -31,10 +33,11 @@ test_cases = [
     {"id": "A09", "cat": "A", "name": "가짜 백신", "text": "고객님, OO카드 FDS(이상거래탐지)팀입니다. 지금 고객님 폰에 악성코드가 심어져서 계속 결제 시도가 들어옵니다. 저희가 이걸 막으려면 '백신'을 업데이트해야 하는데, 데이터가 손실될 수 있으니 이동하지 마시고 한자리에서 와이파이 끄고 진행해 주세요.", "min": 65, "type": "phishing"},
     {"id": "A10", "cat": "A", "name": "생체인증 위장", "text": "네, 고객님. 불편 드려 죄송합니다. 최근 딥보이스 범죄가 늘어나서, 본인 확인 절차가 강화되었습니다. 현재 고객님 목소리의 생체 파형(Voice Print)을 등록해야 계좌 잠금이 풀리는데요, 이게 미세한 소음에도 오류가 납니다. 번거로우시겠지만, 지금 계신 카페는 소음 수치가 높아서 진행이 불가능합니다. 근처에 공유 오피스나 조용한 숙소 같은 곳을 잠시 이용해 주실 수 있을까요?", "min": 60, "type": "phishing"},
 
-    # Category B: 정상 케이스 (11-13)
+    # Category B: 정상 케이스 (11-14)
     {"id": "B01", "cat": "B", "name": "[정상] 심리상담", "text": "안녕하세요, OO정신건강의학과입니다. 예약하신 비대면 진료 시간 되셔서 연락드렸습니다. 진료 내용에 민감한 개인 정보가 포함될 수 있으니, 지금 주변에 사람이 없는 조용한 방이나 독립된 공간으로 이동해 주실 수 있나요? 카페나 공공장소시면 진료가 어렵습니다. 준비되시면 카카오톡으로 보내드린 '닥터나우(또는 줌)' 링크 눌러서 화상 진료실로 입장해 주세요.", "max": 30, "type": "legitimate"},
     {"id": "B02", "cat": "B", "name": "[정상] 원격지원", "text": "고객님, 말씀하신 와이파이 끊김 현상은 설정 충돌 문제로 보입니다. 제가 고객님 휴대폰 화면을 보면서 설정을 좀 잡아드려야 할 것 같은데요. 휴대폰 기본 설정 메뉴에 보시면 '원격 상담' 기능이 있습니다. 그거 누르시고 화면에 뜨는 6자리 접속 번호를 저한테 불러주시겠어요? 연결되면 제가 화면을 제어하면서 해결해 드리겠습니다.", "max": 30, "type": "legitimate"},
     {"id": "B03", "cat": "B", "name": "[정상] 채용검사", "text": "안녕하세요, OO그룹 인사팀 채용 담당자입니다. 서류 합격 축하드립니다. 내일부터 진행되는 온라인 AI 역량 검사 관련해서 안내 전화 드렸습니다. 부정행위 방지를 위해서 반드시 혼자 계신 공간에서 응시하셔야 하고요, 웹캠으로 주변 360도를 비춰주셔야 합니다. 시험 프로그램은 저희 채용 홈페이지 '마이페이지'에서 다운로드 가능하시니까 미리 설치하고 테스트 부탁드립니다.", "max": 30, "type": "legitimate"},
+    {"id": "B04", "cat": "B", "name": "[정상] 부동산 잔금", "text": "아, 선생님! 저 황금부동산입니다. 지금 집주인분 오셨는데, 오늘 잔금 2억 5천 바로 넣으셔야 키 불출이 돼요. 은행 마감 시간 다 되어가서 서두르셔야겠는데요? 아, 네네 지금 바로 보낼게요. 계좌번호가 계약서에 있는 거 맞죠? 네, 그 국민은행 계좌 맞고요. 그리고 법무사님이 지금 신분증 사본이 흐릿하다고 하셔서요. 죄송한데 신분증 앞면만 사진 찍어서 문자로 다시 좀 보내주시겠어요? 지금 바로요. 아, 그래요? 알겠습니다. 지금 이체하고 바로 찍어서 보낼게요. 근데 이체 한도가 걸릴까 봐 걱정이네요. 일단 1억 먼저 보내시고 나머지는 나눠서 보내셔도 돼요. 입금 확인되면 바로 등기 칠게요.", "max": 30, "type": "legitimate"},
 
     # Category C: URL 기반 피싱 (14-23)
     {"id": "C01", "cat": "C", "name": "대법원 위장", "text": "본인 사건이 맞는지 직접 확인해보세요. 인터넷 주소창에 scourt-law.com 입력하시면 대법원 형사 사법 포털 나옵니다. 거기서 '사건 조회' 누르시고 성함 입력해 보세요. 판결문 자세히 보시려면 보안 뷰어(Viewer) 설치하라고 뜨죠? 그거 설치하세요.", "min": 70, "type": "phishing"},
@@ -55,38 +58,38 @@ test_cases = [
     {"id": "D04", "cat": "D", "name": "고수익 알바", "text": "저희는 법무사 사무실인데요, 세금 문제 때문에 법인 통장을 못 써요. 세영 씨 개인 계좌로 돈을 받아서 저희가 알려주는 계좌로 이체만 해주시면 건당 10만 원 드려요. 혹시 지금 면접 보러 오기 힘드시면, 먼저 업무 테스트부터 해볼게요. 지금 입금된 돈 찾아서 근처 코인 ATM기 가서 송금해 보세요.", "min": 60, "type": "phishing"},
 
     # Category E: 고난도 애매한 케이스 (28-39)
-    # [피싱] 은밀한 원격 제어 유도
     {"id": "E01", "cat": "E", "name": "[피싱] 쿠팡 환불 원격제어", "text": "안녕하세요, 쿠팡 와우 멤버십 고객센터입니다. 정세영 고객님 맞으시죠? 다름이 아니라 시스템 오류로 지난달 멤버십 비용 4,990원이 중복 결제가 되셔서요. 이거 환불 도와드리려고 연락드렸어요. 지금 전산상에서 고객님 단말기 로그가 꼬여있어서 '본인 확인' 버튼이 비활성화되어 있거든요. 플레이스토어에 '팀뷰어' 검색하시면 '퀵 서포트' 앱이 있거든요? 그거 켜서 숫자만 불러주시면 제가 원격으로 접속해서 환불 버튼만 딱 눌러드릴게요.", "min": 75, "type": "phishing"},
     {"id": "E02", "cat": "E", "name": "[피싱] 카드사 FDS팀", "text": "여보세요, 정세영 고객님 되시죠? 여기 OO카드 소비자보호팀입니다. 다름이 아니라 아까 10분 전에 '티몬'에서 98만 원짜리 가전제품 결제 승인이 올라왔는데, 평소 고객님 사용 패턴이랑 달라서 저희 FDS 시스템에서 일단 '보류' 처리를 해뒀거든요. 이거 고객님이 직접 하신 거 맞으실까요? 본인이 아니시다면 이의 제기 신청을 전산상으로 남겨주셔야 최종 취소가 되세요. 제가 지금 문자 하나 보내드렸어요. 그 링크 누르시면 '명의도용 방지 보안관' 앱이 뜨는데, 그거 설치해서 '아니요' 버튼만 한 번 눌러주시면 저희 쪽에서 바로 사건 종결해드릴게요.", "min": 80, "type": "phishing"},
     {"id": "E03", "cat": "E", "name": "[피싱] 대환대출 선입금", "text": "안녕하세요, 정세영 고객님. 여기는 서민금융진흥원 위탁센터입니다. 고객님 지금 00저축은행에서 1,500만 원 쓰고 계신 거 금리가 14.8% 잡혀 있으신데요. 이번에 정부에서 '안심전환대출' 추경 예산이 편성돼서요. 고객님 성실 상환자라 대상자로 선정되셨거든요. 이거 연 3.2% 고정금리로 대환 처리가 가능하세요. 이게 정부 자금이라 중복 수혜가 안 돼요. 그래서 기존 저축은행 대출금을 오늘 오전까지 전액 상환 처리하셔서 전산상 '0'으로 만드셔야 저희 쪽 자금이 실행되거든요. 은행 방문하실 필요 없이 저희가 알려드리는 가상계좌로 상환금 넣으시면 오후 2시에 3.2%짜리 2천만 원 바로 입금됩니다.", "min": 75, "type": "phishing"},
     {"id": "E04", "cat": "E", "name": "[피싱] 병원 수술비 선납", "text": "보호자분 되시죠? 여기 세브란스병원 응급의료센터입니다. 지금 아드님이 전동 킥보드 사고로 이송되셨는데 의식이 혼미합니다. CT상으로 '경막하 출혈' 소견이 보이고요, 왼쪽 대퇴부 복합 골절이라 지금 당장 응급 수술 들어가야 합니다. 골든타임 놓치면 뇌 손상이 올 수 있어요. 지금 사용해야 하는 지혈제랑 인공관절이 '비급여' 품목이라서요. 원무과 접수 전에 이 약재비 450만 원이 먼저 선납이 되어야 약제실에서 불출이 됩니다. 수술 동의서랑 같이 처리해야 하니까 지금 불러드리는 원무과 법인 계좌로 이체하시고 바로 수술실 앞으로 오세요.", "min": 75, "type": "phishing"},
     {"id": "E05", "cat": "E", "name": "[피싱] 로맨스스캠 초기", "text": "어? 이거 김민준 전무님 번호 아닌가요? 골프 모임에서 뵀던... 아이고, 제가 번호를 잘못 저장했나 보네요. 죄송합니다. 목소리가 너무 점잖으셔서 실례인 줄 모르고... 저는 무역 사업 하는 '이수진'이라고 합니다. 이것도 인연인데 혹시 카톡 친구 해도 될까요? 제가 죄송해서 커피 기프티콘이라도 하나 보내드리고 싶어서요.", "min": 65, "type": "phishing"},
     {"id": "E06", "cat": "E", "name": "[피싱] 헤드헌터 사칭", "text": "안녕하세요, 정세영 님 맞으시죠? 여기는 글로벌 헤드헌팅사 '링크드'의 박 부장입니다. 이번에 구글 코리아 퀀트 팀에서 TO가 났는데, 세영 님 깃허브 보고 너무 인상 깊어서 연락드렸어요. 이게 비공개 채용이라 급해서요. 일단 매칭을 위해 주민등록증 사본이랑, 급여 통장 내역서, 그리고 가족 관계 증명서를 지금 바로 제 개인 메일로 좀 보내주시겠어요? 평판 조회 때문에 동의서 작성도 필요한데, 보내드린 URL 눌러서 본인 인증 한번만 해주세요.", "min": 70, "type": "phishing"},
-
-    # [정상] 살벌한 정상 통화
     {"id": "E07", "cat": "E", "name": "[정상] 보험금 지급", "text": "여보세요, 정세영 고객님? 삼성화재 대물보상 담당자입니다. 아까 접수된 접촉 사고 건 때문에 전화드렸어요. 과실 비율 100:0 확정되셨고요. 미수선 수리비로 현금 처리 받으시는 게 유리하실 것 같아서요. 합의금 120만 원 책정되셨는데, 동의하시면 지금 불러주시는 계좌로 바로 송금해드릴게요. 세금 처리 때문에 주민번호 뒷자리도 알려주셔야 합니다.", "max": 30, "type": "legitimate"},
     {"id": "E08", "cat": "E", "name": "[정상] 월세 독촉", "text": "아니, 정세영 씨! 지금 월세가 두 달이나 밀렸는데 전화도 안 받고 뭐 하는 겁니까? 사정이고 뭐고, 오늘 중으로 입금 안 되면 저도 방법 없어요. 내용증명 보내고 명도 소송 걸어서 짐 다 뺄 거니까 알아서 하세요! 당장 송금해요!", "max": 30, "type": "legitimate"},
     {"id": "E09", "cat": "E", "name": "[정상] 경찰서 가족인계", "text": "여보세요? 정세영 씨 핸드폰 맞습니까? 여기 서대문경찰서 신촌지구대 김철수 경위입니다. 놀라지 마시고 들으세요. 지금 아버님 되시는 정OO 님이 길가에 쓰러져 계신 걸 시민분이 신고하셔서 저희가 보호 조치 중입니다. 외상은 없으신데 술을 좀 드신 것 같아요. 지금 바로 지구대로 오셔서 인계해 가셔야 합니다. 오실 때 가족관계 증명할 수 있는 신분증하고 등본 같은 거 챙겨서 오세요. 신촌역 3번 출구 앞 파출소입니다.", "max": 30, "type": "legitimate"},
     {"id": "E10", "cat": "E", "name": "[정상] 중고거래 의심", "text": "저기요, 보내주신 계좌번호 조회해보니까 더치트(사기 조회)에는 안 뜨는데, 제가 불안해서요. 인증 좀 더 해주실 수 있어요? 요즘 벽돌 보내는 사기꾼들이 많아서 그러죠. 혹시 영상통화로 물건 보여주실 수 있어요? 그리고 주민등록증도 가리고 사진 하나만 보내주세요. 확신이 안 서서요. 참나, 5만 원짜리 파는데 무슨 신분증까지 달라 그래요? 됐고요, 정 의심되시면 번개페이(안전결제)로 하시던가요. 수수료는 그쪽이 부담하시고요.", "max": 30, "type": "legitimate"},
-    {"id": "E11", "cat": "E", "name": "[정상] 가족 급전 요청", "text": "엄마! 나 지금 큰일 났어. 나 지금 홍대인데 지갑을 잃어버렸어. 집에 갈 차비도 없고 카드도 다 정지시켜서 아무것도 못 해. 어, 폰은 있는데 배터리 3%야. 끊어지면 안 돼. 엄마, 나 지금 친구 계좌로 10만 원만 빨리 보내줘. 내가 집 가서 바로 줄게. 급해 진짜. 어, '박민수'고 카카오뱅크야. 내가 문자로 찍어보낼게. 지금 당장 좀 넣어줘. 나 택시 타야 돼.", "max": 30, "type": "legitimate"},
+    {"id": "E11", "cat": "E", "name": "[피싱] 가족 사칭 급전", "text": "엄마! 나 지금 큰일 났어. 나 지금 홍대인데 지갑을 잃어버렸어. 집에 갈 차비도 없고 카드도 다 정지시켜서 아무것도 못 해. 어, 폰은 있는데 배터리 3%야. 끊어지면 안 돼. 엄마, 나 지금 친구 계좌로 10만 원만 빨리 보내줘. 내가 집 가서 바로 줄게. 급해 진짜. 어, '박민수'고 카카오뱅크야. 내가 문자로 찍어보낼게. 지금 당장 좀 넣어줘. 나 택시 타야 돼.", "min": 70, "type": "phishing"},
     {"id": "E12", "cat": "E", "name": "[정상] 투자 사기 항의", "text": "야, 너네가 500% 수익 난다며! 지금 마이너스 40%인데 이게 말이 돼? 당장 환불해줘. 안 그러면 금감원에 신고하고 경찰서 가서 고소장 접수할 거야! 회원님, 진정하시고요. 투자 손실은 본인 책임이라고 약관에 동의하셨잖아요. 웃기지 마. 너네 처음에 가입비 500만 원 입금하면 원금 보장해준다며 녹취 다 있어. 당장 내 계좌로 돈 다시 송금해.", "max": 30, "type": "legitimate"},
+
+    # Category F: 엣지 케이스 - Hard Negatives (40-48)
+    {"id": "F01", "cat": "F", "name": "[주의] 불법 채권 추심", "text": "야, 김철수 씨. 전화 좀 피하지 맙시다? 오늘까지 이자 입금 안 되면 내일 당장 회사 찾아가서 뒤집어 엎는다고 했죠? 당신 와이프한테도 연락할 거야. 법대로 하라며? 그래 법대로 딱지 붙여줄 테니까 당장 입금해.", "min": 40, "max": 70, "type": "caution"},
+    {"id": "F02", "cat": "F", "name": "[경고] CEO Fraud/BEC", "text": "김 대리, 나 지금 미팅 들어왔는데 거래처에서 입금 확인이 안 된다고 난리네? 지금 내가 OTP를 안 가져와서 그런데, 일단 법인 계좌에서 500만 원만 지금 바로 저쪽 대표님 개인 계좌로 쏴줘요. 내가 카톡으로 계좌 남길게. 나 지금 급하니까 결재 나중에 올리고 처리부터 해.", "min": 70, "type": "phishing"},
+    {"id": "F03", "cat": "F", "name": "[주의] 중고거래 사기", "text": "아, 안전결제는 정산이 너무 늦어서요. 제가 직거래는 지방이라 힘들고, 그냥 쿨거래 하시면 택포 5만 원에 드릴게요. 제 더치트 조회해보시면 깨끗해요. 지금 바로 입금 가능하세요? 다른 분도 연락 와서요.", "min": 40, "max": 60, "type": "caution"},
+
+    # Category G: 엣지 케이스 - Hard Positives (49-57)
+    {"id": "G01", "cat": "G", "name": "[피싱] 돼지도살 빌드업", "text": "어머, 죄송해요. 제가 갤러리 큐레이터 김민정 실장님 번호인 줄 알고... 저장된 번호가 바뀌었나 봐요. 목소리가 되게 차분하시네요? 혹시 그림 좋아하세요? 제가 이번에 코엑스에서 전시회 하는데, 인연도 신기한데 모바일 초대권 하나 보내드려도 될까요?", "min": 60, "type": "phishing"},
+    {"id": "G02", "cat": "G", "name": "[피싱] 정부지원금 컨설팅", "text": "대표님, 이번에 중기부에서 소상공인 에너지 바우처 예산이 증액돼서 연락드렸습니다. 대출은 아니시고요, 환급금 조회해보니까 300 정도 나오시는데 신청 기간이 오늘까지라요. 서류 접수는 저희가 대행해드리니까, 사업자 등록증이랑 통장 사본만 팩스로 보내주시겠어요?", "min": 65, "type": "phishing"},
+    {"id": "G03", "cat": "G", "name": "[피싱] Web3 에어드랍", "text": "안녕하세요, 재단 운영팀입니다. 지난번 스냅샷 기준으로 거버넌스 토큰 에어드랍 대상자신데, 지금 지갑 연결이 해제되셔서 클레임이 안 되고 계세요. 가스비는 저희가 지원하니까, 보내드리는 공식 브릿지 사이트 접속하셔서 트랜잭션 서명만 한번 해주시면 됩니다.", "min": 70, "type": "phishing"},
+
+    # Category H: 엣지 케이스 - Contextual Ambiguity (58-65)
+    {"id": "H01", "cat": "H", "name": "[애매] 자녀 폰 분실", "text": "엄마, 나 민지인데. 나 지금 친구 폰으로 전화하는 거야. 학원 앞에서 폰 떨어뜨렸는데 액정 다 깨져서 터치가 안 돼. 수리 맡겨야 하는데 보험 청구하려면 통신사 인증이 필요하대. 엄마 폰으로 인증 번호 가면 그것만 좀 불러줘. 급해.", "min": 70, "type": "phishing"},
+    {"id": "H02", "cat": "H", "name": "[애매] 경품 제세공과금", "text": "축하드립니다! 지난번 마트 경품 행사 1등 당첨되셔서 안마의자 받으시게 됐어요. 근데 이게 5만 원 초과 경품이라 제세공과금 22%는 본인 부담이시거든요. 오늘 중으로 입금해주셔야 발주 들어가는데, 수령 거부하실 건가요?", "min": 50, "max": 70, "type": "phishing"},
 ]
 
 def main():
-    # 결과를 저장할 파일
-    import datetime
-    output_file = f"benchmark_gemini_39cases_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-
     print("\n" + "="*100)
-    print("🔬 Gemini Detector + Rule Filter 벤치마크 - 39개 케이스 (고난도 포함)")
-    print("="*100)
-    print("Category A: 전통적 보이스피싱 (10개)")
-    print("Category B: 정상 케이스 (3개)")
-    print("Category C: URL 기반 피싱 (10개)")
-    print("Category D: 신규 공격 유형 (4개)")
-    print("Category E: 고난도 애매한 케이스 (12개) - 피싱 6개, 정상 6개")
+    print("🔬 Gemini Detector + Rule Filter 벤치마크 - 상세 결과 수집")
     print("="*100 + "\n")
-    print(f"📁 결과 저장 파일: {output_file}\n")
 
     detector = GeminiPhishingDetector()
 
@@ -98,171 +101,478 @@ def main():
 
     all_results = []
 
-    for test_case in test_cases:
-        print(f"[{test_case['id']}] {test_case['name']} 테스트 중...", end=" ")
+    for i, test_case in enumerate(test_cases, 1):
+        print(f"[{i}/{len(test_cases)}] {test_case['id']}: {test_case['name']} 테스트 중...")
 
         try:
             result = detector.analyze(test_case["text"], enable_filter=True)
 
             all_results.append({
                 "id": test_case["id"],
-                "cat": test_case["cat"],
+                "category": test_case["cat"],
                 "name": test_case["name"],
                 "type": test_case["type"],
+                "input_text": test_case["text"],
                 "expected_min": test_case.get("min", 0),
                 "expected_max": test_case.get("max", 100),
-                "score": result.get("score", 0),
                 "llm_score": result.get("llm_score", 0),
+                "final_score": result.get("score", 0),
+                "is_phishing": result.get("is_phishing", False),
+                "risk_level": result.get("risk_level", ""),
+                "reasoning": result.get("reasoning", ""),
                 "filter_applied": result.get("filter_applied", False),
-                "reasoning": result.get("reasoning", "")
+                "keyword_analysis": result.get("keyword_analysis", {}),
+                "detected_techniques": result.get("detected_techniques", [])
             })
 
-            print(f"✅ (점수: {result.get('score', 0)})")
+            print(f"  ✅ LLM: {result.get('llm_score', 0)} → 최종: {result.get('score', 0)}")
         except Exception as e:
-            print(f"❌ 에러: {e}")
+            print(f"  ❌ 에러: {e}")
             all_results.append({
                 "id": test_case["id"],
-                "cat": test_case["cat"],
+                "category": test_case["cat"],
                 "name": test_case["name"],
                 "type": test_case["type"],
+                "input_text": test_case["text"],
                 "expected_min": test_case.get("min", 0),
                 "expected_max": test_case.get("max", 100),
-                "score": 0,
                 "llm_score": 0,
+                "final_score": 0,
+                "is_phishing": False,
+                "risk_level": "오류",
+                "reasoning": f"Error: {e}",
                 "filter_applied": False,
-                "reasoning": f"Error: {e}"
+                "keyword_analysis": {},
+                "detected_techniques": []
             })
 
-        time.sleep(1)  # Rate limit
+        time.sleep(0.5)  # Reduced delay for faster execution
 
-    # 결과 분석
-    print("\n" + "="*100)
-    print("📊 카테고리별 정답률")
-    print("="*100 + "\n")
+    # JSON 파일로 저장
+    output_json = "benchmark_results_detailed.json"
+    with open(output_json, 'w', encoding='utf-8') as f:
+        json.dump({
+            "test_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "total_cases": len(all_results),
+            "results": all_results
+        }, f, ensure_ascii=False, indent=2)
 
-    categories = {"A": "전통적 보이스피싱", "B": "정상 케이스", "C": "URL 피싱", "D": "신규 유형", "E": "고난도 케이스"}
+    print(f"\n✅ 상세 결과가 {output_json}에 저장되었습니다.")
 
-    for cat_id, cat_name in categories.items():
-        print(f"\n[{cat_id}] {cat_name}")
-        print("-"*100)
+    # 통계 출력
+    total = len(all_results)
+    correct = sum(1 for r in all_results if (
+        (r["type"] == "legitimate" and r["final_score"] <= r.get("expected_max", 100)) or
+        (r["type"] == "phishing" and r["final_score"] >= r.get("expected_min", 0))
+    ))
+    accuracy = (correct / total * 100) if total > 0 else 0
 
-        cat_results = [r for r in all_results if r["cat"] == cat_id]
-        correct = 0
+    print(f"\n📊 최종 통계:")
+    print(f"  - 전체 케이스: {total}개")
+    print(f"  - 정답 케이스: {correct}개")
+    print(f"  - 오답 케이스: {total - correct}개")
+    print(f"  - 정확도: {accuracy:.1f}%")
+
+    # 오답 케이스 출력
+    wrong_cases = [r for r in all_results if not (
+        (r["type"] == "legitimate" and r["final_score"] <= r.get("expected_max", 100)) or
+        (r["type"] == "phishing" and r["final_score"] >= r.get("expected_min", 0))
+    )]
+
+    if wrong_cases:
+        print(f"\n❌ 오답 케이스 {len(wrong_cases)}개:")
+        for r in wrong_cases:
+            expected_range = f"{r.get('expected_min', 0)}-{r.get('expected_max', 100)}" if r['type'] == 'phishing' else f"0-{r.get('expected_max', 100)}"
+            print(f"  [{r['id']}] {r['name']} - 예상: {expected_range}, 실제: {r['final_score']} (타입: {r['type'].upper()})")
+
+    # # HTML 보고서 생성 (주석 처리)
+    # print("\n이제 HTML 보고서를 생성합니다...\n")
+    # generate_html_report(all_results)
+
+def generate_html_report(results):
+    """HTML 보고서 생성"""
+
+    # 카테고리별 분류
+    categories = {
+        "A": {"name": "전통적 보이스피싱", "results": []},
+        "B": {"name": "정상 케이스", "results": []},
+        "C": {"name": "URL 기반 피싱", "results": []},
+        "D": {"name": "신규 공격 유형", "results": []},
+        "E": {"name": "고난도 애매한 케이스", "results": []},
+        "F": {"name": "엣지 케이스 - Hard Negatives (정상을 피싱으로 오판 방지)", "results": []},
+        "G": {"name": "엣지 케이스 - Hard Positives (피싱을 정상으로 오판 방지)", "results": []},
+        "H": {"name": "엣지 케이스 - Contextual Ambiguity (맥락 모호)", "results": []}
+    }
+
+    for r in results:
+        categories[r["category"]]["results"].append(r)
+
+    # 통계 계산
+    total = len(results)
+    correct = sum(1 for r in results if (
+        (r["type"] == "legitimate" and r["final_score"] <= r["expected_max"]) or
+        (r["type"] == "phishing" and r["final_score"] >= r["expected_min"]) or
+        (r["type"] == "caution" and r["expected_min"] <= r["final_score"] <= r["expected_max"])
+    ))
+    accuracy = (correct / total * 100) if total > 0 else 0
+
+    html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>보이스피싱 탐지 벤치마크 결과</title>
+    <style>
+        body {{
+            font-family: 'Malgun Gothic', sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+            font-size: 12px;
+        }}
+
+        .container {{
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+        }}
+
+        h1 {{
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }}
+
+        .summary {{
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #333;
+        }}
+
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }}
+
+        th {{
+            background: #333;
+            color: white;
+            padding: 6px;
+            text-align: left;
+            font-weight: normal;
+            font-size: 11px;
+        }}
+
+        td {{
+            padding: 6px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: top;
+        }}
+
+        tr:hover {{
+            background: #f8f9fa;
+        }}
+
+        .pass {{
+            color: #28a745;
+            font-weight: bold;
+        }}
+
+        .fail {{
+            color: #dc3545;
+            font-weight: bold;
+        }}
+
+        .phishing {{
+            color: #dc3545;
+        }}
+
+        .legitimate {{
+            color: #28a745;
+        }}
+
+        .caution {{
+            color: #ffc107;
+        }}
+
+        .text-content {{
+            font-size: 11px;
+            line-height: 1.4;
+            max-width: 400px;
+        }}
+
+        .input-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }}
+
+        .section-title {{
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }}
+
+        .input-text {{
+            color: #333;
+            line-height: 1.8;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }}
+
+        .analysis-section {{
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }}
+
+        .score-display {{
+            display: flex;
+            gap: 20px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }}
+
+        .score-box {{
+            background: #f8f9fa;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+            flex: 1;
+            min-width: 120px;
+        }}
+
+        .score-box .score {{
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }}
+
+        .score-box .score.high {{
+            color: #dc3545;
+        }}
+
+        .score-box .score.low {{
+            color: #28a745;
+        }}
+
+        .score-box .label {{
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }}
+
+        .reasoning {{
+            color: #555;
+            line-height: 1.8;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }}
+
+        .filter-badge {{
+            background: #fff3cd;
+            color: #856404;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }}
+
+        .keywords {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }}
+
+        .keyword {{
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }}
+
+        .footer {{
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 30px;
+            margin-top: 40px;
+        }}
+
+        @media print {{
+            body {{
+                background: white;
+                padding: 0;
+            }}
+
+            .container {{
+                box-shadow: none;
+            }}
+
+            .test-case {{
+                page-break-inside: avoid;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔬 Gemini 보이스피싱 탐지 벤치마크 보고서</h1>
+            <div class="subtitle">Gemini 2.5 Flash + Rule Filter 통합 시스템</div>
+            <div class="subtitle" style="margin-top: 10px; font-size: 1em;">테스트 일시: {datetime.datetime.now().strftime("%Y년 %m월 %d일 %H:%M:%S")}</div>
+        </div>
+
+        <div class="summary">
+            <div class="stat-card">
+                <div class="number">{total}</div>
+                <div class="label">전체 테스트 케이스</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{correct}</div>
+                <div class="label">정답 케이스</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{accuracy:.1f}%</div>
+                <div class="label">정확도</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{sum(1 for r in results if r['filter_applied'])}</div>
+                <div class="label">필터 적용 케이스</div>
+            </div>
+        </div>
+
+        <div class="content">
+"""
+
+    # 카테고리별 결과
+    for cat_id in ["A", "B", "C", "D", "E", "F", "G", "H"]:
+        cat_data = categories[cat_id]
+        cat_results = cat_data["results"]
+
+        if not cat_results:
+            continue
+
+        cat_correct = sum(1 for r in cat_results if (
+            (r["type"] == "legitimate" and r["final_score"] <= r["expected_max"]) or
+            (r["type"] == "phishing" and r["final_score"] >= r["expected_min"])
+        ))
+        cat_accuracy = (cat_correct / len(cat_results) * 100) if cat_results else 0
+
+        html += f"""
+            <div class="category">
+                <div class="category-header">
+                    <div class="category-title">[{cat_id}] {cat_data['name']}</div>
+                    <div class="category-stats">정답률: {cat_accuracy:.1f}% ({cat_correct}/{len(cat_results)})</div>
+                </div>
+"""
 
         for r in cat_results:
-            is_correct = False
-            if r["type"] == "legitimate":
-                is_correct = r["score"] <= r["expected_max"]
+            is_correct = (
+                (r["type"] == "legitimate" and r["final_score"] <= r["expected_max"]) or
+                (r["type"] == "phishing" and r["final_score"] >= r["expected_min"]) or
+                (r["type"] == "caution" and r["expected_min"] <= r["final_score"] <= r["expected_max"])
+            )
+
+            case_class = "phishing" if r["type"] == "phishing" else ("caution" if r["type"] == "caution" else "legitimate")
+            badge_class = "pass" if is_correct else "fail"
+            badge_text = "✅ 정답" if is_correct else "❌ 오답"
+
+            filter_badge = f'<span class="filter-badge">🔧 필터 적용</span>' if r["filter_applied"] else ''
+
+            if r['type'] == 'caution':
+                expected_range = f"{r['expected_min']}-{r['expected_max']}"
+            elif r['type'] == 'phishing':
+                expected_range = f"{r['expected_min']}-{r['expected_max']}"
             else:
-                is_correct = r["score"] >= r["expected_min"]
+                expected_range = f"0-{r['expected_max']}"
 
-            status = "✅" if is_correct else "❌"
-            if is_correct:
-                correct += 1
+            llm_score_class = "high" if r["llm_score"] >= 70 else "low"
+            final_score_class = "high" if r["final_score"] >= 70 else "low"
 
-            filter_mark = "🔧" if r["filter_applied"] else "  "
+            keywords_html = ""
+            if r["detected_techniques"]:
+                keywords_html = '<div class="keywords">' + "".join(
+                    f'<span class="keyword">{kw}</span>' for kw in r["detected_techniques"][:10]
+                ) + '</div>'
 
-            print(f"{status} {filter_mark} [{r['id']}] {r['name']:<20} | "
-                  f"기대: {r.get('expected_min', 0):>3}-{r.get('expected_max', 100):<3} | "
-                  f"LLM: {r['llm_score']:>3} → 최종: {r['score']:>3}")
+            html += f"""
+                <div class="test-case {case_class}">
+                    <div class="case-header">
+                        <span class="case-id">[{r['id']}]</span>
+                        <span class="case-name">{r['name']}</span>
+                        <span class="badge {r['type']}">{r['type'].upper()}</span>
+                        <span class="badge {badge_class}">{badge_text}</span>
+                        {filter_badge}
+                    </div>
 
-        acc = (correct / len(cat_results) * 100) if cat_results else 0
-        print(f"\n정답률: {acc:.1f}% ({correct}/{len(cat_results)})")
+                    <div class="input-section">
+                        <div class="section-title">📝 입력 문장 전문</div>
+                        <div class="input-text">{r['input_text']}</div>
+                    </div>
 
-    # 전체 정답률
-    print("\n" + "="*100)
-    print("🏆 전체 정답률")
-    print("="*100)
+                    <div class="analysis-section">
+                        <div class="section-title">🤖 Gemini 분석 결과</div>
 
-    total_correct = 0
-    for r in all_results:
-        if r["type"] == "legitimate":
-            if r["score"] <= r["expected_max"]:
-                total_correct += 1
-        else:
-            if r["score"] >= r["expected_min"]:
-                total_correct += 1
+                        <div class="score-display">
+                            <div class="score-box">
+                                <div class="score {llm_score_class}">{r['llm_score']}</div>
+                                <div class="label">LLM 점수</div>
+                            </div>
+                            <div class="score-box">
+                                <div class="score {final_score_class}">{r['final_score']}</div>
+                                <div class="label">최종 점수</div>
+                            </div>
+                            <div class="score-box">
+                                <div class="score" style="font-size: 1.2em; color: #666;">{expected_range}</div>
+                                <div class="label">기대 범위</div>
+                            </div>
+                            <div class="score-box">
+                                <div class="score" style="font-size: 1.2em; color: #666;">{r['risk_level']}</div>
+                                <div class="label">위험도</div>
+                            </div>
+                        </div>
 
-    total_acc = (total_correct / len(all_results) * 100) if all_results else 0
-    print(f"\nGemini + Rule Filter: {total_acc:.1f}% ({total_correct}/{len(all_results)})")
+                        <div class="section-title" style="margin-top: 20px;">💬 판정 이유</div>
+                        <div class="reasoning">{r['reasoning']}</div>
 
-    # Rule Filter 통계
-    filter_count = sum(1 for r in all_results if r["filter_applied"])
-    print(f"\nRule Filter 적용: {filter_count}/{len(all_results)} 케이스 ({filter_count/len(all_results)*100:.1f}%)")
+                        {keywords_html}
+                    </div>
+                </div>
+"""
 
-    print("\n" + "="*100)
-    print("✅ 벤치마크 완료!")
-    print("="*100)
+        html += """
+            </div>
+"""
 
-    # 결과를 파일로 저장
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write("="*100 + "\n")
-        f.write("🔬 Gemini Detector + Rule Filter 벤치마크 결과 - 39개 케이스\n")
-        f.write("="*100 + "\n\n")
+    html += """
+        </div>
 
-        # 카테고리별 상세 결과
-        for cat_id, cat_name in categories.items():
-            f.write(f"\n[{cat_id}] {cat_name}\n")
-            f.write("-"*100 + "\n")
+        <div class="footer">
+            <p><strong>Sentinel-Voice 프로젝트</strong></p>
+            <p>Gemini 2.5 Flash + Rule-based Filter 통합 시스템</p>
+            <p style="margin-top: 10px; opacity: 0.8;">본 보고서는 자동 생성되었습니다.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
-            cat_results = [r for r in all_results if r["cat"] == cat_id]
-            correct = 0
+    output_html = "benchmark_report.html"
+    with open(output_html, 'w', encoding='utf-8') as f:
+        f.write(html)
 
-            for r in cat_results:
-                is_correct = False
-                if r["type"] == "legitimate":
-                    is_correct = r["score"] <= r["expected_max"]
-                else:
-                    is_correct = r["score"] >= r["expected_min"]
-
-                status = "✅" if is_correct else "❌"
-                if is_correct:
-                    correct += 1
-
-                filter_mark = "🔧" if r["filter_applied"] else "  "
-
-                f.write(f"{status} {filter_mark} [{r['id']}] {r['name']:<25} | "
-                       f"기대: {r.get('expected_min', 0):>3}-{r.get('expected_max', 100):<3} | "
-                       f"LLM: {r['llm_score']:>3} → 최종: {r['score']:>3}\n")
-
-            acc = (correct / len(cat_results) * 100) if cat_results else 0
-            f.write(f"\n정답률: {acc:.1f}% ({correct}/{len(cat_results)})\n")
-
-        # 전체 요약
-        f.write("\n" + "="*100 + "\n")
-        f.write("🏆 전체 요약\n")
-        f.write("="*100 + "\n")
-        f.write(f"전체 정답률: {total_acc:.1f}% ({total_correct}/{len(all_results)})\n")
-        f.write(f"Rule Filter 적용: {filter_count}/{len(all_results)} 케이스 ({filter_count/len(all_results)*100:.1f}%)\n")
-
-        # 오답 케이스 분석
-        f.write("\n" + "="*100 + "\n")
-        f.write("❌ 오답 케이스 분석\n")
-        f.write("="*100 + "\n")
-
-        wrong_cases = []
-        for r in all_results:
-            is_correct = False
-            if r["type"] == "legitimate":
-                is_correct = r["score"] <= r["expected_max"]
-            else:
-                is_correct = r["score"] >= r["expected_min"]
-
-            if not is_correct:
-                wrong_cases.append(r)
-
-        if wrong_cases:
-            for r in wrong_cases:
-                f.write(f"\n[{r['id']}] {r['name']}\n")
-                f.write(f"  유형: {r['type']}\n")
-                f.write(f"  기대: {r.get('expected_min', 0)}-{r.get('expected_max', 100)}\n")
-                f.write(f"  LLM 점수: {r['llm_score']} → 최종 점수: {r['score']}\n")
-                f.write(f"  Filter 적용: {'Yes' if r['filter_applied'] else 'No'}\n")
-                f.write(f"  Reasoning: {r['reasoning']}\n")
-        else:
-            f.write("모든 케이스 정답!\n")
-
-    print(f"\n✅ 결과가 {output_file}에 저장되었습니다.")
+    print(f"✅ HTML 보고서가 {output_html}에 저장되었습니다.")
+    return output_html
 
 if __name__ == "__main__":
     main()
