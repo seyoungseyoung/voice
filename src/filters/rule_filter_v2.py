@@ -22,30 +22,32 @@ class RuleBasedFilterV2:
 
     필터 적용 순서:
     0. 사용자 항의/민원 → 정상 (20점)
-    1. 채권 추심 → 중위험 (50점)
-    2. 중고거래 사기 → 중위험 (50점)
-    3. Web3 스캠 → 고위험 유지 (85점+)
-    4. CEO Fraud (개인 계좌) → 피싱 유지
-    5. 헤드헌터 제외 → 피싱 유지
-    6. 2차 LLM 검증 (60-98점) → 재평가
-    7. 원격 제어 + 정상 서비스 → 정상 (25점)
-    8. 낮은 점수 + 고위험 키워드 → 상향 (70점)
-    9. 긴급성 + 금융 키워드 → 상향 (85점)
+    1. 금융/공공기관의 전화 개인정보 요구 → 피싱 유지 (95점)
+    2. 채권 추심 → 중위험 (50점)
+    3. 중고거래 사기 → 중위험 (50점)
+    4. Web3 스캠 → 고위험 유지 (85점+)
+    5. CEO Fraud (개인 계좌) → 피싱 유지
+    6. 헤드헌터 제외 → 피싱 유지
+    7. 2차 LLM 검증 (60-98점) → 재평가
+    8. 원격 제어 + 정상 서비스 → 정상 (25점)
+    9. 낮은 점수 + 고위험 키워드 → 상향 (70점)
+    10. 긴급성 + 금융 키워드 → 상향 (85점)
     """
 
     def __init__(self):
         self.stats = {
             "total_filtered": 0,
             "rule0_user_complaint": 0,
-            "rule1_debt_collection": 0,
-            "rule2_commerce_fraud": 0,
-            "rule3_web3_scam": 0,
-            "rule4_ceo_fraud": 0,
-            "rule5_headhunter": 0,
-            "rule6_second_stage": 0,
-            "rule7_remote_legit": 0,
-            "rule8_keyword_upgrade": 0,
-            "rule9_urgency_upgrade": 0,
+            "rule1_financial_phone_scam": 0,
+            "rule2_debt_collection": 0,
+            "rule3_commerce_fraud": 0,
+            "rule4_web3_scam": 0,
+            "rule5_ceo_fraud": 0,
+            "rule6_headhunter": 0,
+            "rule7_second_stage": 0,
+            "rule8_remote_legit": 0,
+            "rule9_keyword_upgrade": 0,
+            "rule10_urgency_upgrade": 0,
             "passed": 0
         }
 
@@ -90,9 +92,20 @@ class RuleBasedFilterV2:
                 keyword_analysis=keyword_analysis
             )
 
-        # ===== Rule 1: 채권 추심 → 중위험 =====
+        # ===== Rule 1: 금융/공공기관의 전화 개인정보 요구 → 피싱 확정 =====
+        if self._is_financial_institution_phone_scam(text_lower):
+            self.stats["rule1_financial_phone_scam"] += 1
+            return self._make_response(
+                score=max(95, llm_score),  # 최소 95점 보장
+                reason="금융/공공기관이 전화로 개인정보/인증서/앱 설치를 요구함 (실제 기관은 전화로 요구하지 않음)",
+                filter_applied=True,
+                original_score=llm_score,
+                keyword_analysis=keyword_analysis
+            )
+
+        # ===== Rule 2: 채권 추심 → 중위험 =====
         if self._is_debt_collection(text_lower):
-            self.stats["rule1_debt_collection"] += 1
+            self.stats["rule2_debt_collection"] += 1
             return self._make_response(
                 score=50,
                 reason="불법 채권 추심으로 판단 (피싱은 아니지만 경고 필요)",
@@ -101,9 +114,9 @@ class RuleBasedFilterV2:
                 keyword_analysis=keyword_analysis
             )
 
-        # ===== Rule 2: 중고거래 사기 → 중위험 =====
+        # ===== Rule 3: 중고거래 사기 → 중위험 =====
         if self._is_commerce_fraud(text_lower):
-            self.stats["rule2_commerce_fraud"] += 1
+            self.stats["rule3_commerce_fraud"] += 1
             return self._make_response(
                 score=50,
                 reason="중고거래 사기 패턴 감지 (안전결제 거부)",
@@ -112,10 +125,10 @@ class RuleBasedFilterV2:
                 keyword_analysis=keyword_analysis
             )
 
-        # ===== Rule 3: Web3 스캠 → 고위험 유지 =====
+        # ===== Rule 4: Web3 스캠 → 고위험 유지 =====
         web3_risk = self._detect_web3_scam(text_lower)
         if web3_risk:
-            self.stats["rule3_web3_scam"] += 1
+            self.stats["rule4_web3_scam"] += 1
             return self._make_response(
                 score=max(85, llm_score),
                 reason="Web3/암호화폐 스캠 패턴 감지 (지갑 연결/트랜잭션 서명 요구)",
@@ -124,19 +137,19 @@ class RuleBasedFilterV2:
                 keyword_analysis=keyword_analysis
             )
 
-        # ===== Rule 4: CEO Fraud 체크 (개인 계좌 = 피싱 유지) =====
+        # ===== Rule 5: CEO Fraud 체크 (개인 계좌 = 피싱 유지) =====
         # 내부 업무 패턴이지만 개인 계좌 송금은 제외
         if self._is_ceo_fraud(text_lower):
-            self.stats["rule4_ceo_fraud"] += 1
+            self.stats["rule5_ceo_fraud"] += 1
             # CEO Fraud는 LLM 점수 유지 (필터로 격하하지 않음)
             logger.info(f"Rule 4: CEO Fraud detected - maintaining LLM score {llm_score}")
             # 다음 규칙으로 넘어가도록 아무것도 반환하지 않음
 
-        # ===== Rule 5: 내부 업무 지시 (헤드헌터 제외) → 중위험 =====
+        # ===== Rule 6: 내부 업무 지시 (헤드헌터 제외) → 중위험 =====
         if self._is_internal_instruction(text_lower) and 70 <= llm_score <= 95:
             # CEO Fraud가 아닌 경우에만 적용
             if not self._is_ceo_fraud(text_lower):
-                self.stats["rule5_headhunter"] += 1
+                self.stats["rule6_headhunter"] += 1
                 return self._make_response(
                     score=50,
                     reason="내부 업무 지시 패턴 (CEO Fraud 가능성 있으나 정상 업무일 수도 있음)",
@@ -145,13 +158,13 @@ class RuleBasedFilterV2:
                     keyword_analysis=keyword_analysis
                 )
 
-        # ===== Rule 6: 2차 LLM 검증 (60-98점 애매한 케이스) =====
+        # ===== Rule 7: 2차 LLM 검증 (60-98점 애매한 케이스) =====
         if 60 <= llm_score <= 98 and self.second_stage_llm:
             second_check = self._second_stage_verification(text, llm_score, llm_reasoning)
             if second_check["is_safe"]:
-                self.stats["rule6_second_stage"] += 1
+                self.stats["rule7_second_stage"] += 1
                 logger.info(
-                    f"Rule 6: 2차 LLM 검증 완료 - 정상 판정 "
+                    f"Rule 7: 2차 LLM 검증 완료 - 정상 판정 "
                     f"(원점수:{llm_score})"
                 )
                 return self._make_response(
@@ -162,9 +175,9 @@ class RuleBasedFilterV2:
                     keyword_analysis=keyword_analysis
                 )
 
-        # ===== Rule 7: 원격 제어 + 정상 서비스 패턴 =====
+        # ===== Rule 8: 원격 제어 + 정상 서비스 패턴 =====
         if self._is_remote_legit_service(text_lower, llm_reasoning.lower(), llm_score, keyword_analysis):
-            self.stats["rule7_remote_legit"] += 1
+            self.stats["rule8_remote_legit"] += 1
             return self._make_response(
                 score=25,
                 reason="원격 지원 요청이지만 정상 서비스로 판단됨 (예약된 일정, 공식 채널)",
@@ -173,9 +186,9 @@ class RuleBasedFilterV2:
                 keyword_analysis=keyword_analysis
             )
 
-        # ===== Rule 8: 낮은 점수 + 고위험 키워드 많음 → 상향 =====
+        # ===== Rule 9: 낮은 점수 + 고위험 키워드 많음 → 상향 =====
         if llm_score < 60 and keyword_analysis["crime"] >= 5:
-            self.stats["rule8_keyword_upgrade"] += 1
+            self.stats["rule9_keyword_upgrade"] += 1
             return self._make_response(
                 score=70,
                 reason="LLM 점수는 낮지만 다수의 피싱 키워드 감지됨",
@@ -184,12 +197,12 @@ class RuleBasedFilterV2:
                 keyword_analysis=keyword_analysis
             )
 
-        # ===== Rule 9: 긴급성 + 금융 키워드 → 상향 =====
+        # ===== Rule 10: 긴급성 + 금융 키워드 → 상향 =====
         if (keyword_analysis["urgency"] >= 2 and
             keyword_analysis["crime"] >= 3 and
             keyword_analysis["legit"] <= 2 and
             llm_score < 80):
-            self.stats["rule9_urgency_upgrade"] += 1
+            self.stats["rule10_urgency_upgrade"] += 1
             return self._make_response(
                 score=85,
                 reason="긴급성 압박 + 금융/수사 키워드 조합 (전형적 피싱 패턴)",
@@ -209,6 +222,53 @@ class RuleBasedFilterV2:
         )
 
     # ========== 개별 패턴 감지 함수 ==========
+
+    def _is_financial_institution_phone_scam(self, text: str) -> bool:
+        """
+        금융기관/공공기관이 전화로 개인정보/인증서/앱을 요구하는 패턴
+        실제 금융기관/공공기관은 전화로 먼저 이런 것을 요구하지 않음
+        """
+        # 1단계: 금융/공공기관 언급
+        institutions = [
+            "은행", "저축은행", "캐피탈", "카드", "금융", "보험",
+            "금감원", "금융감독원", "국세청", "검찰", "경찰",
+            "진흥원", "kisa", "대출", "금융권",
+            "중기부", "정부", "지원센터", "정책 자금"
+        ]
+        has_institution = any(inst in text for inst in institutions)
+
+        if not has_institution:
+            return False
+
+        # 2단계: 전화로 요구하는 민감한 행위
+        sensitive_requests = [
+            # 인증서/보안
+            "인증서", "공동인증서", "금융인증서", "공인인증서",
+            "otp", "비밀번호", "패스워드", "pin", "보안카드",
+
+            # 앱/프로그램 설치
+            "앱 설치", "어플 설치", "프로그램 설치", "앱을 설치",
+            "어플을 설치", "다운로드", "보안 프로그램", "전자서명",
+
+            # 차단/해제
+            "차단", "잠금", "해제", "복구", "전산",
+
+            # 원격 제어
+            "원격", "remote", "제어", "화면 공유", "접속번호",
+
+            # 개인정보/서류 (정부지원금 사기 등 대응)
+            "신분증", "등록증", "통장 사본", "카드 앞면"
+        ]
+
+        request_count = sum(1 for req in sensitive_requests if req in text)
+
+        # 3단계: 사용자가 의심하고 있는 경우 (역설적으로 피싱 신호)
+        user_suspicious = any(phrase in text for phrase in [
+            "보이스피싱", "보이스 피싱", "사기", "확인해볼", "확인한번"
+        ])
+
+        # 판정: 금융기관 언급 + (민감 요구 2개 이상 OR 사용자가 의심)
+        return has_institution and (request_count >= 2 or user_suspicious)
 
     def _is_user_complaint(self, text: str) -> bool:
         """사용자가 항의/민원하는 상황"""
